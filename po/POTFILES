@@ -1,0 +1,7 @@
+data/com.github.hezral.stashed.desktop.in
+data/com.github.hezral.stashed.appdata.xml.in
+data/com.github.hezral.stashed.gschema.xml
+src/window.ui
+src/main.py
+src/window.py
+
