@@ -36,9 +36,9 @@ class Application(Gtk.Application):
         super().__init__(application_id='com.github.hezral.stashed',
                          flags=Gio.ApplicationFlags.FLAGS_NONE)
         
-        prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
-        self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
-        self.granite_settings.connect("notify::prefers-color-scheme", self.on_prefers_color_scheme)
+        # prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
+        # self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
+        # self.granite_settings.connect("notify::prefers-color-scheme", self.on_prefers_color_scheme)
 
         self.icon_theme = Gtk.IconTheme.get_default()
         self.icon_theme.prepend_search_path("/run/host/usr/share/pixmaps")
@@ -52,9 +52,9 @@ class Application(Gtk.Application):
             win = StashedWindow(application=self)
         win.present()
 
-    def on_prefers_color_scheme(self, *args):
-        prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
-        self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
+    # def on_prefers_color_scheme(self, *args):
+    #     prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
+    #     self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
 
 def main(version):
     app = Application()
