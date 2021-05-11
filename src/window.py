@@ -66,7 +66,7 @@ class StashedWindow(Handy.Window):
         self.props.resizable = False
         self.show_all()
         self.set_keep_above(True)
-        self.set_size_request(400, 400)
+        self.set_size_request(360, 360)
         # self.connect("destroy", Gtk.main_quit)
         self.app = self.props.application
 
@@ -87,7 +87,9 @@ class StashedWindow(Handy.Window):
     
     def on_drag_data_get(self, widget, context, data, info, timestamp):
         print(locals())
-
+        self.grab_from_stash(data.get_target(), data)
+        # Gtk.drag_finish(context, True, False, timestamp)
+        
     def on_drag_data_received(self, widget, context, x, y, data, info, timestamp):
         # print(context.get_source_window())
         self.add_to_stash(data.get_target(), data)
@@ -96,11 +98,15 @@ class StashedWindow(Handy.Window):
     def remove_from_stash(self, target, data):
         print(locals())
 
+    def grab_from_stash(self, target, data):
+        print(target, data)
+
     def add_to_stash(self, target, data):
         from urllib.parse import urlparse
         
         print(target, data.get_data_type())
         print(data.get_text())
+
         if str(target) == "text/uri-list":
             uris = data.get_uris()
             file_count = len(uris)
@@ -134,7 +140,22 @@ class StashedWindow(Handy.Window):
             icon.props.pixbuf = icon_pixbuf
         elif "gif" in mime_type:
             icon_pixbufanimation = GdkPixbuf.PixbufAnimation.new_from_file(path)
-            icon = GifContainer(path)
+            height = icon_pixbufanimation.get_height()
+            width = icon_pixbufanimation.get_width()
+            ratio_h_w = height / width
+            ratio_w_h = width / height
+            iter = icon_pixbufanimation.get_iter()
+            for i in range(0, 500):
+                timeval = GLib.TimeVal()
+                timeval.tv_sec = int(str(GLib.get_real_time())[:-3])
+                iter.advance(timeval)
+            pixbuf = GdkPixbuf.PixbufAnimationIter.get_pixbuf(iter)
+            if ratio_w_h > 1:
+                icon.props.pixbuf = pixbuf.scale_simple(100, 64, GdkPixbuf.InterpType.BILINEAR)
+            else:
+                icon.props.pixbuf = pixbuf.scale_simple(100, 100, GdkPixbuf.InterpType.BILINEAR)
+
+            # icon = GifContainer(path)
         else:
             for icon_name in icons.to_string().split():
                 if icon_name != "." and icon_name != "GThemedIcon":
@@ -146,32 +167,43 @@ class StashedWindow(Handy.Window):
                         pass
 
         children_count = len(self.iconstack_overlay.get_children())
+        self.iconstack_overlay.add_overlay(icon)
         if children_count == 0:
-            self.iconstack_overlay.add(icon)
+            # self.iconstack_overlay.add(icon)
             child = self.iconstack_overlay.get_children()[0]
         else:
-            self.iconstack_overlay.add_overlay(icon)
+            # self.iconstack_overlay.add_overlay(icon)
             child = self.iconstack_overlay.get_children()[-2]
 
         prev_margin = 72 + self.iconstack_offset - 2
         margin = 72 + self.iconstack_offset
 
+
+
         import random
-        if child.props.margin_bottom == prev_margin:
-            icon.props.margin_left = margin
-            icon.props.margin_bottom = self.iconstack_offset + random.randint(10,100) % 2
-        elif child.props.margin_left == prev_margin:
-            icon.props.margin_top = margin
-            icon.props.margin_left = self.iconstack_offset + random.randint(10,100) % 2
-        elif child.props.margin_top == prev_margin:
-            icon.props.margin_right = margin
-            icon.props.margin_top= self.iconstack_offset + random.randint(10,100) % 2
-        elif child.props.margin_right == prev_margin:
-            icon.props.margin_bottom = margin
-            icon.props.margin_right = self.iconstack_offset + random.randint(10,100) % 2
-        else:
-            icon.props.margin_bottom = margin
-            icon.props.margin_right = self.iconstack_offset + random.randint(10,100) % 2
+        # if child.props.margin_bottom == prev_margin:
+        #     icon.props.margin_left = margin
+        #     # icon.props.margin_bottom = self.iconstack_offset + random.randint(10,100) % 2
+        # elif child.props.margin_left == prev_margin:
+        #     icon.props.margin_top = margin
+        #     # icon.props.margin_left = self.iconstack_offset + random.randint(10,100) % 2
+        # elif child.props.margin_top == prev_margin:
+        #     icon.props.margin_right = margin
+        #     # icon.props.margin_top= self.iconstack_offset + random.randint(10,100) % 2
+        # elif child.props.margin_right == prev_margin:
+        #     icon.props.margin_bottom = margin
+        #     # icon.props.margin_right = self.iconstack_offset + random.randint(10,100) % 2
+        # else:
+        #     icon.props.margin_bottom = margin
+        #     # icon.props.margin_right = self.iconstack_offset + random.randint(10,100) % 2
+
+        # margins = [icon.props.margin_bottom, icon.props.margin_top, icon.props.margin_left, icon.props.margin_right]
+        set_margins = [icon.set_margin_bottom, icon.set_margin_top, icon.set_margin_left, icon.set_margin_right]
+        random.choice(set_margins)(margin)
+        random.choice(set_margins)(self.iconstack_offset + random.randint(10,1000) % 2)
+        # margin2 = margin
+        # margin1 = self.iconstack_offset + random.randint(10,100) % 2
+        # print(margin)
 
         i += 1
         if self.iconstack_offset >= 40:
