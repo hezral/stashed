@@ -106,68 +106,51 @@ class StashedWindow(Handy.Window):
         
         print(target, data.get_data_type())
         print(data.get_text())
-
         mime_type = "application/octet-stream"
 
         if str(target) == "text/uri-list":
             uris = data.get_uris()
             file_count = len(uris)
-            i = 0
             for uri in uris:
                 parsed_uri = urlparse(uri)
                 path, hostname = GLib.filename_from_uri(uri)
-                path_type = "local"
-                if parsed_uri.scheme == "":
-                    path = parsed_uri.netloc
-                try:
-                    iconstack_child = [child for child in self.iconstack_overlay.get_children() if path.replace("/", "_") == child.props.name][0]
-                except:
-                    if os.path.exists(path):
-                        if os.path.isdir(path):  
-                            mime_type = "inode/directory"
-                        elif os.path.isfile(path):  
-                            mime_type, val = Gio.content_type_guess(path, data=None)
-                        self.update_stash(i, path, mime_type)
-                        i += 1
+                # path_type = "local"
+                # if parsed_uri.scheme != "":
+                #     path = parsed_uri.netloc
+                #     path_type = parsed_uri.scheme
+                # # try:
+                # iconstack_child = [child for child in self.iconstack_overlay.get_children() if path == child.path][0]
+                # except:
+                if os.path.exists(path):
+                    if os.path.isdir(path):  
+                        mime_type = "inode/directory"
+                    elif os.path.isfile(path):  
+                        mime_type, val = Gio.content_type_guess(path, data=None)
 
-    def update_stash(self, i, path, mime_type):
-        icon_size = 96
+                self.update_stash(path, mime_type)
+
+    def update_stash(self, path, mime_type):
         icon = None
-        icons = Gio.content_type_get_icon(mime_type)
-        icon = Gtk.Image()
-        icon.props.halign = Gtk.Align.CENTER
-
         if "image" in mime_type and not "gif" in mime_type:
-            icon_pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(path, icon_size, icon_size)
-            icon.props.pixbuf = icon_pixbuf
+            try:
+                icon = ImageContainer(path)
+            except:
+                icon = DefaultContainer(path, mime_type, self.app)
         elif "gif" in mime_type:
             icon = GifContainer(path)
-            icon.get_style_context().add_class("iconstack-gif")
         else:
-            for icon_name in icons.to_string().split():
-                if icon_name != "." and icon_name != "GThemedIcon":
-                    try:
-                        icon_pixbuf = self.app.icon_theme.load_icon(icon_name, icon_size, 0)
-                        icon.props.pixbuf = icon_pixbuf
-                        break
-                    except:
-                        pass
+            icon = DefaultContainer(path, mime_type, self.app)
 
-        icon.props.name = path.replace("/","_")
-
-        children_count = len(self.iconstack_overlay.get_children())
         self.iconstack_overlay.add_overlay(icon)
 
-        # margin = 72 + self.iconstack_offset
-
         import random
-        margin = random.randint(16,64) + self.iconstack_offset
-        set_margins = [icon.set_margin_bottom, icon.set_margin_top, icon.set_margin_left, icon.set_margin_right]
-        random.choice(set_margins)(margin)
-        random.choice(set_margins)(self.iconstack_offset + random.randint(10,1000) % 2)
+        if len(self.iconstack_overlay.get_children()) != 1:
+            margin = random.randint(16,64) + self.iconstack_offset
+            set_margins = [icon.set_margin_bottom, icon.set_margin_top, icon.set_margin_left, icon.set_margin_right]
+            random.choice(set_margins)(margin)
+            random.choice(set_margins)(self.iconstack_offset + random.randint(10,1000) % 2)
 
-        i += 1
-        if self.iconstack_offset >= 40:
+        if self.iconstack_offset >= 20:
             self.iconstack_offset = 0
         else:
             self.iconstack_offset += 2
@@ -176,17 +159,46 @@ class StashedWindow(Handy.Window):
         self.stash_grid.show_all()
 
 
+class DefaultContainer(Gtk.Grid):
+    def __init__(self, filepath, mime_type, app, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-class StashContainer(Gtk.Grid):
+        self.props.name = "stash-container"
+        self.path = filepath
+        self.props.halign = self.props.valign = Gtk.Align.CENTER
+
+        icon_size = 96
+        icon = Gtk.Image()
+
+        icons = Gio.content_type_get_icon(mime_type)
+        for icon_name in icons.to_string().split():
+            if icon_name != "." and icon_name != "GThemedIcon":
+                try:
+                    icon_pixbuf = app.icon_theme.load_icon(icon_name, icon_size, 0)
+                    break
+                except:
+                    if "image" in mime_type:
+                        icon_pixbuf = app.icon_theme.load_icon("image-x-generic", icon_size, 0)
+                    else:
+                        icon_pixbuf = app.icon_theme.load_icon("application-octet-stream", icon_size, 0)
+                    break
+        icon.props.pixbuf = icon_pixbuf
+        
+        self.attach(icon, 0, 0, 1, 1)
+
+
+class ImageContainer(Gtk.Grid):
     def __init__(self, filepath, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.props.name = "stash-containernon"
+        self.props.name = "stash-container"
+        self.path = filepath
+        self.props.halign = self.props.valign = Gtk.Align.CENTER
 
         icon_size = 96
-        icon = None
         icon = Gtk.Image()
-        icon.props.halign = Gtk.Align.CENTER
+        icon_pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(filepath, icon_size, icon_size)
+        icon.props.pixbuf = icon_pixbuf
 
         self.attach(icon, 0, 0, 1, 1)
         
@@ -195,11 +207,14 @@ class GifContainer(Gtk.Grid):
     def __init__(self, filepath, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.props.name = "stash-container"
+        self.path = filepath
+
         self.pixbuf_original = GdkPixbuf.PixbufAnimation.new_from_file(filepath)
         self.pixbuf_original_height = self.pixbuf_original.get_height()
         self.pixbuf_original_width = self.pixbuf_original.get_width()
         self.iter = self.pixbuf_original.get_iter()
-        for i in range(0, 500):
+        for i in range(0, 100):
             timeval = GLib.TimeVal()
             timeval.tv_sec = int(str(GLib.get_real_time())[:-3])
             self.iter.advance(timeval)
