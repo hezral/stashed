@@ -46,10 +46,6 @@ class StashedWindow(Handy.Window):
         self.header.get_style_context().add_class(Granite.STYLE_CLASS_DEFAULT_DECORATION)
         self.header.get_style_context().add_class(Gtk.STYLE_CLASS_FLAT)
 
-        label = Gtk.Label("Stashed")
-        label.props.expand = True
-        label.props.valign = label.props.halign = Gtk.Align.CENTER
-
         self.iconstack_overlay = Gtk.Overlay()
         self.iconstack_overlay.props.expand = True
         self.iconstack_overlay.props.valign = self.iconstack_overlay.props.halign = Gtk.Align.FILL
@@ -67,7 +63,6 @@ class StashedWindow(Handy.Window):
         self.show_all()
         self.set_keep_above(True)
         self.set_size_request(360, 360)
-        # self.connect("destroy", Gtk.main_quit)
         self.app = self.props.application
 
         self.drag_and_drop_setup()
@@ -81,7 +76,7 @@ class StashedWindow(Handy.Window):
         self.connect("drag_data_received", self.on_drag_data_received)
 
     def drag_and_grab_setup(self):
-        self.iconstack_overlay.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, [URI_DND_TARGET], Gdk.DragAction.ASK)
+        self.iconstack_overlay.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, [URI_DND_TARGET], Gdk.DragAction.COPY)
         self.iconstack_overlay.drag_source_add_uri_targets()
         self.iconstack_overlay.connect("drag_data_get", self.on_drag_data_get)
     
@@ -100,6 +95,11 @@ class StashedWindow(Handy.Window):
 
     def grab_from_stash(self, target, data):
         print(target, data)
+        # if str(target) == "text/uri-list":
+        #     uris = data.get_uris()
+        #     file_count = len(uris)
+        #     i = 0
+        #     for uri in uris:
 
     def add_to_stash(self, target, data):
         from urllib.parse import urlparse
@@ -107,14 +107,18 @@ class StashedWindow(Handy.Window):
         print(target, data.get_data_type())
         print(data.get_text())
 
+        mime_type = "application/octet-stream"
+
         if str(target) == "text/uri-list":
             uris = data.get_uris()
             file_count = len(uris)
-            mime_type = "application/octet-stream"
             i = 0
             for uri in uris:
-                path = urlparse(uri).netloc
+                parsed_uri = urlparse(uri)
                 path, hostname = GLib.filename_from_uri(uri)
+                path_type = "local"
+                if parsed_uri.scheme == "":
+                    path = parsed_uri.netloc
                 try:
                     iconstack_child = [child for child in self.iconstack_overlay.get_children() if path.replace("/", "_") == child.props.name][0]
                 except:
@@ -126,36 +130,19 @@ class StashedWindow(Handy.Window):
                         self.update_stash(i, path, mime_type)
                         i += 1
 
-
     def update_stash(self, i, path, mime_type):
         icon_size = 96
         icon = None
         icons = Gio.content_type_get_icon(mime_type)
         icon = Gtk.Image()
         icon.props.halign = Gtk.Align.CENTER
-        icon.props.name = path.replace("/","_")
 
         if "image" in mime_type and not "gif" in mime_type:
             icon_pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(path, icon_size, icon_size)
             icon.props.pixbuf = icon_pixbuf
         elif "gif" in mime_type:
-            icon_pixbufanimation = GdkPixbuf.PixbufAnimation.new_from_file(path)
-            height = icon_pixbufanimation.get_height()
-            width = icon_pixbufanimation.get_width()
-            ratio_h_w = height / width
-            ratio_w_h = width / height
-            iter = icon_pixbufanimation.get_iter()
-            for i in range(0, 500):
-                timeval = GLib.TimeVal()
-                timeval.tv_sec = int(str(GLib.get_real_time())[:-3])
-                iter.advance(timeval)
-            pixbuf = GdkPixbuf.PixbufAnimationIter.get_pixbuf(iter)
-            if ratio_w_h > 1:
-                icon.props.pixbuf = pixbuf.scale_simple(100, 64, GdkPixbuf.InterpType.BILINEAR)
-            else:
-                icon.props.pixbuf = pixbuf.scale_simple(100, 100, GdkPixbuf.InterpType.BILINEAR)
-
-            # icon = GifContainer(path)
+            icon = GifContainer(path)
+            icon.get_style_context().add_class("iconstack-gif")
         else:
             for icon_name in icons.to_string().split():
                 if icon_name != "." and icon_name != "GThemedIcon":
@@ -166,44 +153,18 @@ class StashedWindow(Handy.Window):
                     except:
                         pass
 
+        icon.props.name = path.replace("/","_")
+
         children_count = len(self.iconstack_overlay.get_children())
         self.iconstack_overlay.add_overlay(icon)
-        if children_count == 0:
-            # self.iconstack_overlay.add(icon)
-            child = self.iconstack_overlay.get_children()[0]
-        else:
-            # self.iconstack_overlay.add_overlay(icon)
-            child = self.iconstack_overlay.get_children()[-2]
 
-        prev_margin = 72 + self.iconstack_offset - 2
-        margin = 72 + self.iconstack_offset
-
-
+        # margin = 72 + self.iconstack_offset
 
         import random
-        # if child.props.margin_bottom == prev_margin:
-        #     icon.props.margin_left = margin
-        #     # icon.props.margin_bottom = self.iconstack_offset + random.randint(10,100) % 2
-        # elif child.props.margin_left == prev_margin:
-        #     icon.props.margin_top = margin
-        #     # icon.props.margin_left = self.iconstack_offset + random.randint(10,100) % 2
-        # elif child.props.margin_top == prev_margin:
-        #     icon.props.margin_right = margin
-        #     # icon.props.margin_top= self.iconstack_offset + random.randint(10,100) % 2
-        # elif child.props.margin_right == prev_margin:
-        #     icon.props.margin_bottom = margin
-        #     # icon.props.margin_right = self.iconstack_offset + random.randint(10,100) % 2
-        # else:
-        #     icon.props.margin_bottom = margin
-        #     # icon.props.margin_right = self.iconstack_offset + random.randint(10,100) % 2
-
-        # margins = [icon.props.margin_bottom, icon.props.margin_top, icon.props.margin_left, icon.props.margin_right]
+        margin = random.randint(16,64) + self.iconstack_offset
         set_margins = [icon.set_margin_bottom, icon.set_margin_top, icon.set_margin_left, icon.set_margin_right]
         random.choice(set_margins)(margin)
         random.choice(set_margins)(self.iconstack_offset + random.randint(10,1000) % 2)
-        # margin2 = margin
-        # margin1 = self.iconstack_offset + random.randint(10,100) % 2
-        # print(margin)
 
         i += 1
         if self.iconstack_offset >= 40:
@@ -213,6 +174,22 @@ class StashedWindow(Handy.Window):
 
         self.header.props.title = "{count} Stashed".format(count=len(self.iconstack_overlay.get_children()))
         self.stash_grid.show_all()
+
+
+
+class StashContainer(Gtk.Grid):
+    def __init__(self, filepath, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.props.name = "stash-containernon"
+
+        icon_size = 96
+        icon = None
+        icon = Gtk.Image()
+        icon.props.halign = Gtk.Align.CENTER
+
+        self.attach(icon, 0, 0, 1, 1)
+        
 
 class GifContainer(Gtk.Grid):
     def __init__(self, filepath, *args, **kwargs):
