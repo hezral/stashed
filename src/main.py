@@ -40,6 +40,10 @@ class Application(Gtk.Application):
         # self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
         # self.granite_settings.connect("notify::prefers-color-scheme", self.on_prefers_color_scheme)
 
+        provider = Gtk.CssProvider()        
+        provider.load_from_path(os.path.join(os.path.dirname(__file__), "data", "application.css"))
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
         self.icon_theme = Gtk.IconTheme.get_default()
         self.icon_theme.prepend_search_path("/run/host/usr/share/pixmaps")
         self.icon_theme.prepend_search_path("/run/host/usr/share/icons")

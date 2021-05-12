@@ -39,3 +39,9 @@ if compile_schemas.found()
     args: ['--strict', '--dry-run', meson.current_source_dir()]
   )
 endif
+
+pkgdatadir = join_paths(get_option('prefix'), get_option('datadir'), meson.project_name())
+
+install_data('application.css',
+  install_dir: join_paths(pkgdatadir, meson.project_name().split()[-1], 'data')
+)

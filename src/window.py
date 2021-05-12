@@ -20,12 +20,13 @@ import gi
 gi.require_version('Handy', '1')
 gi.require_version('Gtk', '3.0')
 gi.require_version('Granite', '1.0')
-from gi.repository import Gtk, Handy, Gdk, Gio, Granite, GLib, GdkPixbuf
+from gi.repository import Gtk, Handy, Gdk, Gio, Granite, GLib, GdkPixbuf, Pango
 
 IMAGE_DND_TARGET = Gtk.TargetEntry.new('image/png', Gtk.TargetFlags.SAME_APP, 0)
 UTF8TEXT_DND_TARGET = Gtk.TargetEntry.new('text/plain;charset=utf-8', Gtk.TargetFlags.SAME_APP, 0)
 PLAINTEXT_DND_TARGET = Gtk.TargetEntry.new('text/plain', Gtk.TargetFlags.SAME_APP, 0)
 URI_DND_TARGET = Gtk.TargetEntry.new('text/uri-list', Gtk.TargetFlags.SAME_APP, 0)
+TARGETS = [URI_DND_TARGET, IMAGE_DND_TARGET, UTF8TEXT_DND_TARGET, PLAINTEXT_DND_TARGET]
 
 class StashedWindow(Handy.Window):
     __gtype_name__ = 'StashedWindow'
@@ -51,37 +52,70 @@ class StashedWindow(Handy.Window):
         self.iconstack_overlay.props.valign = self.iconstack_overlay.props.halign = Gtk.Align.FILL
         
         self.stash_grid = Gtk.Grid()
+        self.stash_grid.connect("button-press-event", self.on_stash_grid_clicked)
         self.stash_grid.attach(self.iconstack_overlay, 0, 0, 1, 1)
+
+        self.stash_items_flowbox = Gtk.FlowBox()
+        self.stash_items_flowbox.props.expand = True
+        self.stash_items_flowbox.props.homogeneous = True
+        self.stash_items_flowbox.props.row_spacing = 20
+        self.stash_items_flowbox.props.column_spacing = 10
+        self.stash_items_flowbox.props.max_children_per_line = 2
+        self.stash_items_flowbox.props.min_children_per_line = 2
+        self.stash_items_flowbox.props.margin = 20
+        self.stash_items_flowbox.props.valign = self.stash_items_flowbox.props.halign = Gtk.Align.FILL
+
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.props.expand = True
+        scrolled_window.add(self.stash_items_flowbox)
+
+        self.stash_revealer = Gtk.Revealer()
+        # self.stash_revealer.props.transition_duration = 500
+        self.stash_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
+        self.stash_revealer.add(scrolled_window)
 
         self.grid = Gtk.Grid()
         self.grid.props.expand = True
         self.grid.attach(self.header, 0, 0, 1, 1)
         self.grid.attach(self.stash_grid, 0, 1, 1, 1)
+        self.grid.attach(self.stash_revealer, 0, 1, 1, 1)
 
         self.add(self.grid)
         self.props.resizable = False
         self.show_all()
         self.set_keep_above(True)
-        self.set_size_request(360, 360)
+        self.set_size_request(400, 400)
         self.app = self.props.application
 
         self.drag_and_drop_setup()
         self.drag_and_grab_setup()
 
+    def on_stash_grid_clicked(self, grid, eventbutton):
+        if eventbutton.button == 3:
+            if self.stash_revealer.get_reveal_child():
+                self.stash_revealer.set_reveal_child(False)
+            else:
+                self.stash_revealer.set_reveal_child(True)
+                self.stash_revealer.show_all()
+
     def drag_and_drop_setup(self):
-        self.drag_dest_set(Gtk.DestDefaults.ALL, [URI_DND_TARGET], Gdk.DragAction.COPY)
+        self.drag_dest_set(Gtk.DestDefaults.ALL, TARGETS, Gdk.DragAction.COPY)
         self.drag_dest_add_uri_targets()
         self.drag_dest_add_image_targets()
         self.drag_dest_add_text_targets()
         self.connect("drag_data_received", self.on_drag_data_received)
 
     def drag_and_grab_setup(self):
-        self.iconstack_overlay.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, [URI_DND_TARGET], Gdk.DragAction.COPY)
+        self.iconstack_overlay.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, TARGETS, Gdk.DragAction.COPY)
         self.iconstack_overlay.drag_source_add_uri_targets()
-        self.iconstack_overlay.connect("drag_data_get", self.on_drag_data_get)
+        self.iconstack_overlay.drag_source_add_uri_targets()
+        self.iconstack_overlay.drag_source_add_image_targets()
+        self.iconstack_overlay.drag_source_add_text_targets()
+        self.iconstack_overlay.connect("drag_data_get", self.on_drag_data_grabbed)
     
-    def on_drag_data_get(self, widget, context, data, info, timestamp):
-        print(locals())
+    def on_drag_data_grabbed(self, widget, context, data, info, timestamp):
+        # print(locals())
+        # print(context.get_dest_window())
         self.grab_from_stash(data.get_target(), data)
         # Gtk.drag_finish(context, True, False, timestamp)
         
@@ -94,23 +128,17 @@ class StashedWindow(Handy.Window):
         print(locals())
 
     def grab_from_stash(self, target, data):
-        print(target, data)
-        # if str(target) == "text/uri-list":
-        #     uris = data.get_uris()
-        #     file_count = len(uris)
-        #     i = 0
-        #     for uri in uris:
+        # print(target)
+        print(target, data.get_data_type())
 
     def add_to_stash(self, target, data):
         from urllib.parse import urlparse
         
         print(target, data.get_data_type())
-        print(data.get_text())
-        mime_type = "application/octet-stream"
+        # print(data.get_text())
 
         if str(target) == "text/uri-list":
             uris = data.get_uris()
-            file_count = len(uris)
             for uri in uris:
                 parsed_uri = urlparse(uri)
                 path, hostname = GLib.filename_from_uri(uri)
@@ -118,30 +146,41 @@ class StashedWindow(Handy.Window):
                 # if parsed_uri.scheme != "":
                 #     path = parsed_uri.netloc
                 #     path_type = parsed_uri.scheme
-                # # try:
-                # iconstack_child = [child for child in self.iconstack_overlay.get_children() if path == child.path][0]
-                # except:
-                if os.path.exists(path):
-                    if os.path.isdir(path):  
-                        mime_type = "inode/directory"
-                    elif os.path.isfile(path):  
-                        mime_type, val = Gio.content_type_guess(path, data=None)
-
-                self.update_stash(path, mime_type)
+                try:
+                    iconstack_child = [child for child in self.iconstack_overlay.get_children() if path == child.path][0]
+                except:
+                    if os.path.exists(path):
+                        if os.path.isdir(path):  
+                            mime_type = "inode/directory"
+                        elif os.path.isfile(path):  
+                            mime_type, val = Gio.content_type_guess(path, data=None)
+                    self.update_stash(path, mime_type)
 
     def update_stash(self, path, mime_type):
         icon = None
         if "image" in mime_type and not "gif" in mime_type:
             try:
                 icon = ImageContainer(path)
+                item = ImageContainer(path, 64)
             except:
                 icon = DefaultContainer(path, mime_type, self.app)
+                item = DefaultContainer(path, mime_type, self.app, 64)
         elif "gif" in mime_type:
             icon = GifContainer(path)
+            item = GifContainer(path, 64)
         else:
             icon = DefaultContainer(path, mime_type, self.app)
+            item = DefaultContainer(path, mime_type, self.app, 64)
 
         self.iconstack_overlay.add_overlay(icon)
+
+        stash_item = Gtk.Grid()
+        stash_item.props.row_spacing = 4
+        stash_item.props.halign = stash_item.props.valign = Gtk.Align.CENTER
+        label = ItemLabel(path)
+        stash_item.attach(item, 0, 0, 1, 1)
+        stash_item.attach(label, 0, 1, 1, 1)
+        self.stash_items_flowbox.add(stash_item)
 
         import random
         if len(self.iconstack_overlay.get_children()) != 1:
@@ -158,16 +197,29 @@ class StashedWindow(Handy.Window):
         self.header.props.title = "{count} Stashed".format(count=len(self.iconstack_overlay.get_children()))
         self.stash_grid.show_all()
 
+class ItemLabel(Gtk.Label):
+    def __init__(self, filepath, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.props.label = os.path.basename(filepath)
+        self.props.wrap_mode = Pango.WrapMode.CHAR
+        self.props.max_width_chars = 16
+        self.props.wrap = True
+        self.props.hexpand = True
+        self.props.justify = Gtk.Justification.CENTER
+        self.props.lines = 2
+        self.props.ellipsize = Pango.EllipsizeMode.END
+
 
 class DefaultContainer(Gtk.Grid):
-    def __init__(self, filepath, mime_type, app, *args, **kwargs):
+    def __init__(self, filepath, mime_type, app, size=96, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.props.name = "stash-container"
         self.path = filepath
         self.props.halign = self.props.valign = Gtk.Align.CENTER
 
-        icon_size = 96
+        icon_size = size
         icon = Gtk.Image()
 
         icons = Gio.content_type_get_icon(mime_type)
@@ -188,23 +240,23 @@ class DefaultContainer(Gtk.Grid):
 
 
 class ImageContainer(Gtk.Grid):
-    def __init__(self, filepath, *args, **kwargs):
+    def __init__(self, filepath, size=96, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.props.name = "stash-container"
         self.path = filepath
         self.props.halign = self.props.valign = Gtk.Align.CENTER
 
-        icon_size = 96
+        icon_size = size
         icon = Gtk.Image()
         icon_pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(filepath, icon_size, icon_size)
         icon.props.pixbuf = icon_pixbuf
 
         self.attach(icon, 0, 0, 1, 1)
-        
+
 
 class GifContainer(Gtk.Grid):
-    def __init__(self, filepath, *args, **kwargs):
+    def __init__(self, filepath, size=100, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.props.name = "stash-container"
@@ -224,9 +276,9 @@ class GifContainer(Gtk.Grid):
         self.ratio_w_h = self.pixbuf_original_width / self.pixbuf_original_height
 
         if self.ratio_w_h > 1:
-            self.set_size_request(100, 64)
+            self.set_size_request(size, int((10/16)*size) + 1)
         else:
-            self.set_size_request(100, 100)
+            self.set_size_request(size, size)
     
         drawing_area = Gtk.DrawingArea()
         drawing_area.props.expand = True
