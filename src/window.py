@@ -64,15 +64,19 @@ class StashedWindow(Handy.Window):
         self.stash_items_flowbox.props.min_children_per_line = 2
         self.stash_items_flowbox.props.margin = 20
         self.stash_items_flowbox.props.valign = self.stash_items_flowbox.props.halign = Gtk.Align.FILL
+        self.stash_items_flowbox.connect("button-press-event", self.on_stash_grid_clicked)
 
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.props.expand = True
         scrolled_window.add(self.stash_items_flowbox)
 
+        stash_items_grid = Gtk.Grid()
+        stash_items_grid.attach(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), 0, 0, 1, 1)
+        stash_items_grid.attach(scrolled_window, 0, 1, 1, 1)
+
         self.stash_revealer = Gtk.Revealer()
-        # self.stash_revealer.props.transition_duration = 500
         self.stash_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
-        self.stash_revealer.add(scrolled_window)
+        self.stash_revealer.add(stash_items_grid)
 
         self.grid = Gtk.Grid()
         self.grid.props.expand = True

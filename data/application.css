@@ -19,8 +19,8 @@ headerbar > box {
     padding-left: 2px;
 }
 
-flowbox {
-    background-color: alpha(@theme_base_color, 0.95);
+scrolledwindow {
+    background-color: alpha(@theme_base_color, 0.96);
 }
 
 scrolledwindow > undershoot.top {
