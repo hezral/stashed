@@ -32,57 +32,97 @@ class StashedWindow(Handy.Window):
     __gtype_name__ = 'StashedWindow'
 
     iconstack_offset = 0
+    search = []
+    search_result = 0
 
     Handy.init()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        search_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("system-search-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        search_button.props.always_show_image = True
+        search_button.props.can_focus = False
+        search_button.props.margin = 2
+        search_button.set_size_request(16, 16)
+        search_button.get_style_context().remove_class("image-button")
+        search_button.get_style_context().add_class("titlebutton")
+        search_button.connect("clicked", self.on_search_clicked)
+
+        self.search_revealer = Gtk.Revealer()
+        self.search_revealer.props.transition_duration = 2000
+        self.search_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
+        self.search_revealer.add(search_button)
+
+        search_entry = Gtk.SearchEntry()
+        search_entry.props.hexpand = True
+        search_entry.props.halign = Gtk.Align.FILL
+
+        self.search_entry_revealer = Gtk.Revealer()
+        self.search_entry_revealer.props.transition_duration = 250
+        self.search_entry_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
+        self.search_entry_revealer.add(search_entry)
+
         self.header = Handy.HeaderBar()
-        self.header.props.show_close_button = True
         self.header.props.hexpand = True
         self.header.props.title = "Stashed"
+        self.header.props.has_subtitle = False
         self.header.props.show_close_button = True
         self.header.props.decoration_layout = "close:"
         self.header.get_style_context().add_class(Granite.STYLE_CLASS_DEFAULT_DECORATION)
         self.header.get_style_context().add_class(Gtk.STYLE_CLASS_FLAT)
+        self.header.pack_end(self.search_revealer)
 
         self.iconstack_overlay = Gtk.Overlay()
         self.iconstack_overlay.props.expand = True
         self.iconstack_overlay.props.valign = self.iconstack_overlay.props.halign = Gtk.Align.FILL
         
         self.stash_grid = Gtk.Grid()
-        self.stash_grid.connect("button-press-event", self.on_stash_grid_clicked)
+        self.stash_grid.props.can_focus = True
         self.stash_grid.attach(self.iconstack_overlay, 0, 0, 1, 1)
-
+        self.stash_grid.connect("button-press-event", self.on_stash_grid_clicked)
+        
         self.stash_items_flowbox = Gtk.FlowBox()
+        # self.stash_items_flowbox.props.can_focus = True
         self.stash_items_flowbox.props.expand = True
         self.stash_items_flowbox.props.homogeneous = True
         self.stash_items_flowbox.props.row_spacing = 20
-        self.stash_items_flowbox.props.column_spacing = 10
+        self.stash_items_flowbox.props.column_spacing = 20
         self.stash_items_flowbox.props.max_children_per_line = 2
         self.stash_items_flowbox.props.min_children_per_line = 2
         self.stash_items_flowbox.props.margin = 20
-        self.stash_items_flowbox.props.valign = self.stash_items_flowbox.props.halign = Gtk.Align.FILL
+        self.stash_items_flowbox.props.valign = Gtk.Align.START
+        self.stash_items_flowbox.props.halign = Gtk.Align.FILL
+        self.stash_items_flowbox.props.selection_mode = Gtk.SelectionMode.MULTIPLE
+        self.stash_items_flowbox.connect("child-activated", self.on_stash_items_flowboxchild_activated)
         self.stash_items_flowbox.connect("button-press-event", self.on_stash_grid_clicked)
 
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.props.expand = True
         scrolled_window.add(self.stash_items_flowbox)
+        
+        self.search_keyword = Gtk.Label()
+        self.search_keyword.props.name = "search-keyword"
+        # self.search_keyword.props.margin = 4
+        self.search_keyword.props.halign = Gtk.Align.FILL
+        self.search_keyword.props.valign = Gtk.Align.START
+        self.search_keyword_revealer = Gtk.Revealer()
+        self.search_keyword_revealer.add(self.search_keyword)
 
         stash_items_grid = Gtk.Grid()
         stash_items_grid.attach(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), 0, 0, 1, 1)
+        stash_items_grid.attach(self.search_keyword_revealer, 0, 0, 1, 1)
         stash_items_grid.attach(scrolled_window, 0, 1, 1, 1)
 
-        self.stash_revealer = Gtk.Revealer()
-        self.stash_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
-        self.stash_revealer.add(stash_items_grid)
+        self.stash_items_revealer = Gtk.Revealer()
+        self.stash_items_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
+        self.stash_items_revealer.add(stash_items_grid)
 
         self.grid = Gtk.Grid()
         self.grid.props.expand = True
         self.grid.attach(self.header, 0, 0, 1, 1)
+        self.grid.attach(self.stash_items_revealer, 0, 1, 1, 1)
         self.grid.attach(self.stash_grid, 0, 1, 1, 1)
-        self.grid.attach(self.stash_revealer, 0, 1, 1, 1)
 
         self.add(self.grid)
         self.props.resizable = False
@@ -92,15 +132,35 @@ class StashedWindow(Handy.Window):
         self.app = self.props.application
 
         self.drag_and_drop_setup()
-        self.drag_and_grab_setup()
+        self.drag_and_grab_setup(self.iconstack_overlay)
+        self.drag_and_grab_setup(self.stash_items_flowbox)
 
-    def on_stash_grid_clicked(self, grid, eventbutton):
+
+    def on_stash_items_flowboxchild_activated(self, flowbox, flowboxchild):
+        flowboxchild.get_children()[0].revealer.set_reveal_child(True)
+
+    def on_stash_grid_clicked(self, widget, eventbutton):
         if eventbutton.button == 3:
-            if self.stash_revealer.get_reveal_child():
-                self.stash_revealer.set_reveal_child(False)
-            else:
-                self.stash_revealer.set_reveal_child(True)
-                self.stash_revealer.show_all()
+            self.reveal_stash_grid()
+
+    def on_search_clicked(self, button):
+        if len(self.iconstack_overlay.get_children()) != 0:
+            self.reveal_stash_grid()
+
+    def reveal_stash_grid(self):
+        if self.stash_items_revealer.get_reveal_child():
+            self.stash_items_revealer.set_reveal_child(False)
+            if len(self.stash_items_flowbox.get_selected_children()) > 0:
+                self.stash_items_flowbox.unselect_all()
+                for flowboxchild in self.stash_items_flowbox.get_children():
+                    flowboxchild.get_children()[0].revealer.set_reveal_child(False)
+            self.on_stash_unfiltered()
+            self.stash_grid.show_all()
+            self.disconnect_by_func(self.on_stash_filtered)
+        else:
+            self.stash_items_revealer.set_reveal_child(True)
+            self.stash_grid.hide()
+            self.connect("key-press-event", self.on_stash_filtered)
 
     def drag_and_drop_setup(self):
         self.drag_dest_set(Gtk.DestDefaults.ALL, TARGETS, Gdk.DragAction.COPY)
@@ -109,31 +169,27 @@ class StashedWindow(Handy.Window):
         self.drag_dest_add_text_targets()
         self.connect("drag_data_received", self.on_drag_data_received)
 
-    def drag_and_grab_setup(self):
-        self.iconstack_overlay.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, TARGETS, Gdk.DragAction.COPY)
-        self.iconstack_overlay.drag_source_add_uri_targets()
-        self.iconstack_overlay.drag_source_add_uri_targets()
-        self.iconstack_overlay.drag_source_add_image_targets()
-        self.iconstack_overlay.drag_source_add_text_targets()
-        self.iconstack_overlay.connect("drag_data_get", self.on_drag_data_grabbed)
+    def drag_and_grab_setup(self, widget):
+        widget.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, [URI_DND_TARGET], Gdk.DragAction.COPY)
+        widget.connect("drag_data_get", self.on_drag_data_grabbed)
     
     def on_drag_data_grabbed(self, widget, context, data, info, timestamp):
-        # print(locals())
-        # print(context.get_dest_window())
-        self.grab_from_stash(data.get_target(), data)
-        # Gtk.drag_finish(context, True, False, timestamp)
+        self.grab_from_stash(data.get_target(), widget)
         
     def on_drag_data_received(self, widget, context, x, y, data, info, timestamp):
-        # print(context.get_source_window())
         self.add_to_stash(data.get_target(), data)
         Gtk.drag_finish(context, True, False, timestamp) 
     
     def remove_from_stash(self, target, data):
         print(locals())
 
-    def grab_from_stash(self, target, data):
-        # print(target)
-        print(target, data.get_data_type())
+    def grab_from_stash(self, target, widget):
+        if isinstance(widget, Gtk.Overlay):
+            for child in widget.get_children():
+                print(child.path)
+        else:
+            for child in widget.get_selected_children():
+                print(child.get_children()[0].get_child().get_children()[1].path)
 
     def add_to_stash(self, target, data):
         from urllib.parse import urlparse
@@ -146,10 +202,6 @@ class StashedWindow(Handy.Window):
             for uri in uris:
                 parsed_uri = urlparse(uri)
                 path, hostname = GLib.filename_from_uri(uri)
-                # path_type = "local"
-                # if parsed_uri.scheme != "":
-                #     path = parsed_uri.netloc
-                #     path_type = parsed_uri.scheme
                 try:
                     iconstack_child = [child for child in self.iconstack_overlay.get_children() if path == child.path][0]
                 except:
@@ -161,45 +213,104 @@ class StashedWindow(Handy.Window):
                     self.update_stash(path, mime_type)
 
     def update_stash(self, path, mime_type):
-        icon = None
+        icon = DefaultContainer(path, mime_type, self.app)
+        item = DefaultContainer(path, mime_type, self.app, 64)
         if "image" in mime_type and not "gif" in mime_type:
             try:
                 icon = ImageContainer(path)
                 item = ImageContainer(path, 64)
             except:
-                icon = DefaultContainer(path, mime_type, self.app)
-                item = DefaultContainer(path, mime_type, self.app, 64)
-        elif "gif" in mime_type:
+                pass
+        if "gif" in mime_type:
             icon = GifContainer(path)
             item = GifContainer(path, 64)
-        else:
-            icon = DefaultContainer(path, mime_type, self.app)
-            item = DefaultContainer(path, mime_type, self.app, 64)
 
         self.iconstack_overlay.add_overlay(icon)
-
-        stash_item = Gtk.Grid()
-        stash_item.props.row_spacing = 4
-        stash_item.props.halign = stash_item.props.valign = Gtk.Align.CENTER
-        label = ItemLabel(path)
-        stash_item.attach(item, 0, 0, 1, 1)
-        stash_item.attach(label, 0, 1, 1, 1)
-        self.stash_items_flowbox.add(stash_item)
+        self.stash_items_flowbox.add(StashItem(path, item))
 
         import random
         if len(self.iconstack_overlay.get_children()) != 1:
-            margin = random.randint(16,64) + self.iconstack_offset
+            margin = random.randint(24,64) + self.iconstack_offset
             set_margins = [icon.set_margin_bottom, icon.set_margin_top, icon.set_margin_left, icon.set_margin_right]
             random.choice(set_margins)(margin)
             random.choice(set_margins)(self.iconstack_offset + random.randint(10,1000) % 2)
 
-        if self.iconstack_offset >= 20:
+        if self.iconstack_offset >= 30:
             self.iconstack_offset = 0
         else:
             self.iconstack_offset += 2
 
         self.header.props.title = "{count} Stashed".format(count=len(self.iconstack_overlay.get_children()))
-        self.stash_grid.show_all()
+        self.iconstack_overlay.show_all()
+        self.stash_items_flowbox.show_all()
+        self.search_revealer.set_reveal_child(True)
+
+    def filter_func(self, flowboxchild, search_text):
+        stash_item_path = os.path.basename(flowboxchild.get_children()[0].get_child().get_children()[1].path)
+        if search_text in stash_item_path:
+            return True
+        else:
+            return False
+
+    def on_stash_unfiltered(self):
+        self.stash_items_flowbox.invalidate_filter()
+        self.stash_items_flowbox.set_filter_func(self.filter_func, "")
+        self.search = []
+        self.stash_items_flowbox.unselect_all()
+        self.search_keyword_revealer.set_reveal_child(False)
+        
+    def on_stash_filtered(self, window, eventkey):
+
+        if eventkey.keyval == 65288:
+            self.on_stash_unfiltered()
+        elif eventkey.keyval == 65307:
+            pass
+        else:
+            if eventkey.string != "" and eventkey.state.first_value_name == "GDK_MOD2_MASK":
+                self.search_keyword_revealer.set_reveal_child(True)
+                self.search.append(eventkey.string)
+                keyword = ''.join(self.search)
+                self.stash_items_flowbox.invalidate_filter()
+                self.stash_items_flowbox.set_filter_func(self.filter_func, keyword)
+                self.search_keyword.props.label = keyword
+                    
+
+class StashItem(Gtk.EventBox):
+    def __init__(self, filepath, item, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        button = Gtk.Button(image=Gtk.Image().new_from_icon_name("process-completed", Gtk.IconSize.SMALL_TOOLBAR))
+        button.set_size_request(32, 32)
+        button.props.name = "stash-item-select"
+        button.props.halign = Gtk.Align.END
+        button.props.valign = Gtk.Align.START
+        button.props.can_focus = False
+        button.connect("clicked", self.on_select_button)
+        button.get_style_context().add_class("stash-item-select")
+        self.revealer = Gtk.Revealer()
+        self.revealer.add(button)
+
+        label = ItemLabel(filepath)
+
+        grid = Gtk.Grid()
+        grid.props.margin = 6
+        grid.props.row_spacing = 4
+        grid.props.expand = True
+        grid.props.halign = grid.props.valign = Gtk.Align.CENTER
+        grid.attach(self.revealer, 0, 0, 1, 1)
+        grid.attach(item, 0, 0, 1, 1)
+        grid.attach(label, 0, 1, 1, 1)
+        grid.set_size_request(100, 100)
+
+        self.add(grid)
+        self.props.has_tooltip = True
+        self.props.tooltip_text = filepath
+
+    def on_select_button(self, button):
+        if self.revealer.get_reveal_child():
+            self.revealer.set_reveal_child(False)
+            self.get_toplevel().stash_items_flowbox.unselect_child(self.get_parent())
+
 
 class ItemLabel(Gtk.Label):
     def __init__(self, filepath, *args, **kwargs):
@@ -220,7 +331,8 @@ class DefaultContainer(Gtk.Grid):
         super().__init__(*args, **kwargs)
 
         self.props.name = "stash-container"
-        self.path = filepath
+        self.props.expand = True
+        self.path  = filepath
         self.props.halign = self.props.valign = Gtk.Align.CENTER
 
         icon_size = size
@@ -233,11 +345,13 @@ class DefaultContainer(Gtk.Grid):
                     icon_pixbuf = app.icon_theme.load_icon(icon_name, icon_size, 0)
                     break
                 except:
-                    if "image" in mime_type:
-                        icon_pixbuf = app.icon_theme.load_icon("image-x-generic", icon_size, 0)
-                    else:
-                        icon_pixbuf = app.icon_theme.load_icon("application-octet-stream", icon_size, 0)
+                    pass
+            if "generic" in icon_name:
+                try:
+                    icon_pixbuf = app.icon_theme.load_icon(icon_name, icon_size, 0)
                     break
+                except:
+                    icon_pixbuf = app.icon_theme.load_icon("application-octet-stream", icon_size, 0)
         icon.props.pixbuf = icon_pixbuf
         
         self.attach(icon, 0, 0, 1, 1)
@@ -248,6 +362,7 @@ class ImageContainer(Gtk.Grid):
         super().__init__(*args, **kwargs)
 
         self.props.name = "stash-container"
+        self.props.expand = True
         self.path = filepath
         self.props.halign = self.props.valign = Gtk.Align.CENTER
 
@@ -270,7 +385,7 @@ class GifContainer(Gtk.Grid):
         self.pixbuf_original_height = self.pixbuf_original.get_height()
         self.pixbuf_original_width = self.pixbuf_original.get_width()
         self.iter = self.pixbuf_original.get_iter()
-        for i in range(0, 100):
+        for i in range(0, 250):
             timeval = GLib.TimeVal()
             timeval.tv_sec = int(str(GLib.get_real_time())[:-3])
             self.iter.advance(timeval)

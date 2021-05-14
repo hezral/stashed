@@ -36,6 +36,8 @@ class Application(Gtk.Application):
         super().__init__(application_id='com.github.hezral.stashed',
                          flags=Gio.ApplicationFlags.FLAGS_NONE)
         
+        self.main_window = None
+
         # prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
         # self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
         # self.granite_settings.connect("notify::prefers-color-scheme", self.on_prefers_color_scheme)
@@ -51,14 +53,39 @@ class Application(Gtk.Application):
         self.icon_theme.prepend_search_path(os.path.join(os.path.dirname(__file__), "data", "icons"))
 
     def do_activate(self):
-        win = self.props.active_window
-        if not win:
-            win = StashedWindow(application=self)
-        win.present()
+        self.main_window = self.props.active_window
+        if not self.main_window:
+            self.main_window = StashedWindow(application=self)
 
-    # def on_prefers_color_scheme(self, *args):
-    #     prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
-    #     self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
+        # self.main_window.set_keep_above(True)
+        self.main_window.present()
+        self.main_window.stash_grid.grab_focus()
+        # GLib.timeout_add(100, self.main_window.set_keep_above, False) # need to put time gap else won't work to bring window front
+
+        self.create_app_actions()
+
+    def on_prefers_color_scheme(self, *args):
+        prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
+        self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
+
+    def create_action(self, name, callback, shortcutkey):
+        action = Gio.SimpleAction.new(name, None)
+        action.connect("activate", callback)
+        self.add_action(action)
+        self.set_accels_for_action("app.{name}".format(name=name), [shortcutkey])
+
+    def on_hide_action(self, action, param):
+        if self.main_window is not None:
+            self.main_window.hide()
+
+    def on_quit_action(self, action, param):
+        if self.main_window is not None:
+            self.main_window.destroy()
+
+    def create_app_actions(self):
+        # app actions
+        self.create_action("hide", self.on_hide_action, "Escape")
+        self.create_action("quit", self.on_quit_action, "<Ctrl>Q")
 
 def main(version):
     app = Application()
