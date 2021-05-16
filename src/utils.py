@@ -22,17 +22,16 @@ def run_async(func):
     '''
     https://github.com/learningequality/ka-lite-gtk/blob/341813092ec7a6665cfbfb890aa293602fb0e92f/kalite_gtk/mainwindow.py
     http://code.activestate.com/recipes/576683-simple-threading-decorator/
-        run_async(func)
-            function decorator, intended to make "func" run in a separate
-            thread (asynchronously).
-            Returns the created Thread object
-            E.g.:
-            @run_async
-            def task1():
-                do_something
-            @run_async
-            def task2():
-                do_something_too
+    run_async(func): 
+    function decorator, intended to make "func" run in a separate thread (asynchronously).
+    Returns the created Thread object
+    Example:
+        @run_async
+        def task1():
+            do_something
+        @run_async
+        def task2():
+            do_something_too
     '''
     from threading import Thread
     from functools import wraps
@@ -789,18 +788,133 @@ def get_fuzzy_timestamp(time=False):
 
 #-------------------------------------------------------------------------------------------------------
 
-def copy_to_clipboard(clipboard_target, file, type=None):
+def copy_to_clipboard(uris):
     from subprocess import Popen, PIPE
+
     try:
-        Popen(['xclip', '-selection', 'clipboard', '-target', clipboard_target, '-i', file])
+        copyfiles = Popen(['xclip', '-selection', 'clipboard', '-target', 'x-special/gnome-copied-files'], stdin=PIPE)
+        copyfiles.communicate(str.encode(uris))
         return True
     except:
         return False
 
-def paste_from_clipboard(clipboard_target, file, type=None):
-    from subprocess import Popen, PIPE
+
+def paste_from_clipboard():
+    '''
+    ported from Clipped: https://github.com/davidmhewitt/clipped/blob/edac68890c2a78357910f05bf44060c2aba5958e/src/ClipboardManager.vala
+    '''
+    import time
+
+    def perform_key_event(accelerator, press, delay):
+        import Xlib
+        from Xlib import X
+        from Xlib.display import Display
+        from Xlib.ext.xtest import fake_input
+        from Xlib.protocol.event import KeyPress, KeyRelease
+        import time
+
+        import gi
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import Gtk, Gdk, GdkX11
+
+        keysym, modifiers = Gtk.accelerator_parse(accelerator)
+        display = Display()
+        # root = display.screen().root
+        # window = root.query_pointer().child
+        # window.set_input_focus(X.RevertToParent, X.CurrentTime)
+        # window.configure(stack_mode=X.Above)
+        # display.sync()
+
+        keycode = display.keysym_to_keycode(keysym)
+
+        if press:
+            event_type = X.KeyPress
+        else:
+            event_type = X.KeyRelease
+
+        if keycode != 0:
+            if 'GDK_CONTROL_MASK' in modifiers.value_names:
+                # print("control")
+                modcode = display.keysym_to_keycode(Gdk.KEY_Control_L)
+                fake_input(display, event_type, modcode, delay)
+
+            if 'GDK_SHIFT_MASK' in modifiers.value_names:
+                # print("shift")
+                modcode = display.keysym_to_keycode(Gdk.KEY_Shift_L)
+                fake_input(display, event_type, modcode, delay)
+
+            fake_input(display, event_type, keycode, delay)
+
+            display.sync()
+    
+    perform_key_event("<Control>v", True, 100)
+    perform_key_event("<Control>v", False, 0)
+
+
+
+def get_xlib_window_by_gtk_application_id(id):
+    import Xlib
+    import Xlib.display
+
+    display = Xlib.display.Display()
+    root = display.screen().root
+
+    NET_CLIENT_LIST = display.intern_atom('_NET_CLIENT_LIST')
+    GTK_APPLICATION_ID = display.intern_atom('_GTK_APPLICATION_ID')
+
+    root.change_attributes(event_mask=Xlib.X.FocusChangeMask)
     try:
-        Popen(['xclip', '-selection', 'clipboard', '-target', clipboard_target, '-i', file])
-        return True
-    except:
-        return False
+        window_id = root.get_full_property(NET_CLIENT_LIST, Xlib.X.AnyPropertyType).value
+        for id in window_id:
+            window = display.create_resource_object('window', id)
+            window.change_attributes(event_mask=Xlib.X.PropertyChangeMask)
+            if window.get_full_property(GTK_APPLICATION_ID, 0):
+                if window.get_full_property(GTK_APPLICATION_ID, 0).value.decode("utf-8") == id:
+                    break
+
+    except Xlib.error.XError: #simplify dealing with BadWindow
+        window_name = None
+
+    return window
+
+def set_active_window_by_pointer():
+    import Xlib
+    from Xlib.display import Display
+    from Xlib import X
+
+    display = Display()
+    root = display.screen().root
+    window = root.query_pointer().child
+    window.set_input_focus(X.RevertToParent, X.CurrentTime)
+    window.configure(stack_mode=X.Above)
+    display.sync()
+
+def set_active_window_by_xwindow(window):
+    import Xlib
+    from Xlib.display import Display
+    from Xlib import X
+
+    display = Display()
+    window.set_input_focus(X.RevertToParent, X.CurrentTime)
+    window.configure(stack_mode=X.Above)
+    display.sync()
+
+def clone_widget(widget):
+    widget2=widget.__class__()
+    for prop in dir(widget):
+        if prop.startswith("set_") and prop not in ["set_buffer"]:
+            prop_value=None
+            try:
+                prop_value=getattr(widget, prop.replace("set_","get_") )()
+            except:
+                try:
+                    prop_value=getattr(widget, prop.replace("set_","") )
+                except:
+                    continue
+            if prop_value == None:
+                continue
+            try:
+                getattr(widget2, prop)( prop_value ) 
+            except:
+                pass
+    return widget2

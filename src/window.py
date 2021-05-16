@@ -22,6 +22,8 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Granite', '1.0')
 from gi.repository import Gtk, Handy, Gdk, Gio, Granite, GLib, GdkPixbuf, Pango
 
+from .utils import *
+
 IMAGE_DND_TARGET = Gtk.TargetEntry.new('image/png', Gtk.TargetFlags.SAME_APP, 0)
 UTF8TEXT_DND_TARGET = Gtk.TargetEntry.new('text/plain;charset=utf-8', Gtk.TargetFlags.SAME_APP, 0)
 PLAINTEXT_DND_TARGET = Gtk.TargetEntry.new('text/plain', Gtk.TargetFlags.SAME_APP, 0)
@@ -40,6 +42,8 @@ class StashedWindow(Handy.Window):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        self.app = self.props.application
+
         search_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("system-search-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         search_button.props.always_show_image = True
         search_button.props.can_focus = False
@@ -54,15 +58,6 @@ class StashedWindow(Handy.Window):
         self.search_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
         self.search_revealer.add(search_button)
 
-        search_entry = Gtk.SearchEntry()
-        search_entry.props.hexpand = True
-        search_entry.props.halign = Gtk.Align.FILL
-
-        self.search_entry_revealer = Gtk.Revealer()
-        self.search_entry_revealer.props.transition_duration = 250
-        self.search_entry_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
-        self.search_entry_revealer.add(search_entry)
-
         self.header = Handy.HeaderBar()
         self.header.props.hexpand = True
         self.header.props.title = "Stashed"
@@ -74,16 +69,16 @@ class StashedWindow(Handy.Window):
         self.header.pack_end(self.search_revealer)
 
         self.iconstack_overlay = Gtk.Overlay()
+        self.iconstack_overlay.props.name = "stack"
         self.iconstack_overlay.props.expand = True
         self.iconstack_overlay.props.valign = self.iconstack_overlay.props.halign = Gtk.Align.FILL
-        
+
         self.stash_grid = Gtk.Grid()
         self.stash_grid.props.can_focus = True
         self.stash_grid.attach(self.iconstack_overlay, 0, 0, 1, 1)
         self.stash_grid.connect("button-press-event", self.on_stash_grid_clicked)
         
         self.stash_items_flowbox = Gtk.FlowBox()
-        # self.stash_items_flowbox.props.can_focus = True
         self.stash_items_flowbox.props.expand = True
         self.stash_items_flowbox.props.homogeneous = True
         self.stash_items_flowbox.props.row_spacing = 20
@@ -103,7 +98,6 @@ class StashedWindow(Handy.Window):
         
         self.search_keyword = Gtk.Label()
         self.search_keyword.props.name = "search-keyword"
-        # self.search_keyword.props.margin = 4
         self.search_keyword.props.halign = Gtk.Align.FILL
         self.search_keyword.props.valign = Gtk.Align.START
         self.search_keyword_revealer = Gtk.Revealer()
@@ -135,7 +129,6 @@ class StashedWindow(Handy.Window):
         self.drag_and_grab_setup(self.iconstack_overlay)
         self.drag_and_grab_setup(self.stash_items_flowbox)
 
-
     def on_stash_items_flowboxchild_activated(self, flowbox, flowboxchild):
         flowboxchild.get_children()[0].revealer.set_reveal_child(True)
 
@@ -163,39 +156,55 @@ class StashedWindow(Handy.Window):
             self.connect("key-press-event", self.on_stash_filtered)
 
     def drag_and_drop_setup(self):
-        self.drag_dest_set(Gtk.DestDefaults.ALL, TARGETS, Gdk.DragAction.COPY)
+        self.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
         self.drag_dest_add_uri_targets()
         self.drag_dest_add_image_targets()
-        self.drag_dest_add_text_targets()
         self.connect("drag_data_received", self.on_drag_data_received)
 
     def drag_and_grab_setup(self, widget):
-        widget.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, [URI_DND_TARGET], Gdk.DragAction.COPY)
-        widget.connect("drag_data_get", self.on_drag_data_grabbed)
+        widget.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, [], Gdk.DragAction.COPY)
+        widget.drag_source_add_uri_targets()
+        # widget.connect("drag_data_get", self.on_drag_data_get)
+        widget.connect("drag_end", self.grab_from_stash)
     
-    def on_drag_data_grabbed(self, widget, context, data, info, timestamp):
-        self.grab_from_stash(data.get_target(), widget)
+    def dnd_debug(self, *args):
+        print(locals())
+
+    def on_drag_data_get(self, widget, drag_context, data, info, timestamp):
+        # print(locals())
+        Gtk.drag_set_icon_widget(drag_context, self.iconstack_drag_widget, -2, -2)
         
     def on_drag_data_received(self, widget, context, x, y, data, info, timestamp):
         self.add_to_stash(data.get_target(), data)
         Gtk.drag_finish(context, True, False, timestamp) 
-    
-    def remove_from_stash(self, target, data):
-        print(locals())
 
-    def grab_from_stash(self, target, widget):
+    def grab_from_stash(self, widget, drag_context):
+        uris = []
         if isinstance(widget, Gtk.Overlay):
             for child in widget.get_children():
-                print(child.path)
+                if child.path != None:
+                    uris.append("file://" + child.path)
+                    
         else:
             for child in widget.get_selected_children():
-                print(child.get_children()[0].get_child().get_children()[1].path)
+                if child.get_children()[0].get_child().get_children()[1].path != None:
+                    uris.append("file://" + child.get_children()[0].get_child().get_children()[1].path)
 
+        uri_list = '\n'.join(uris)
+        uri = 'copy' + uri_list
+        
+        stashed_window = self.app.utils.get_xlib_window_by_gtk_application_id(self.app.props.application_id)
+        self.app.utils.copy_to_clipboard(uri)
+        self.app.utils.set_active_window_by_pointer()
+        self.app.utils.paste_from_clipboard()
+        self.app.utils.set_active_window_by_xwindow(stashed_window)
+
+    @run_async
     def add_to_stash(self, target, data):
         from urllib.parse import urlparse
-        
-        print(target, data.get_data_type())
-        # print(data.get_text())
+        import time
+
+        print(target)
 
         if str(target) == "text/uri-list":
             uris = data.get_uris()
@@ -210,7 +219,10 @@ class StashedWindow(Handy.Window):
                             mime_type = "inode/directory"
                         elif os.path.isfile(path):  
                             mime_type, val = Gio.content_type_guess(path, data=None)
-                    self.update_stash(path, mime_type)
+
+                    GLib.idle_add(self.update_stash, path, mime_type)
+                    # self.update_stash(path, mime_type)
+                    time.sleep(0.05)
 
     def update_stash(self, path, mime_type):
         icon = DefaultContainer(path, mime_type, self.app)
@@ -225,8 +237,6 @@ class StashedWindow(Handy.Window):
             icon = GifContainer(path)
             item = GifContainer(path, 64)
 
-        self.iconstack_overlay.add_overlay(icon)
-        self.stash_items_flowbox.add(StashItem(path, item))
 
         import random
         if len(self.iconstack_overlay.get_children()) != 1:
@@ -234,6 +244,10 @@ class StashedWindow(Handy.Window):
             set_margins = [icon.set_margin_bottom, icon.set_margin_top, icon.set_margin_left, icon.set_margin_right]
             random.choice(set_margins)(margin)
             random.choice(set_margins)(self.iconstack_offset + random.randint(10,1000) % 2)
+
+        self.iconstack_overlay.add_overlay(icon)
+
+        self.stash_items_flowbox.add(StashItem(path, item))
 
         if self.iconstack_offset >= 30:
             self.iconstack_offset = 0
@@ -358,7 +372,7 @@ class DefaultContainer(Gtk.Grid):
 
 
 class ImageContainer(Gtk.Grid):
-    def __init__(self, filepath, size=96, *args, **kwargs):
+    def __init__(self, filepath, size=128, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.props.name = "stash-container"
@@ -375,7 +389,7 @@ class ImageContainer(Gtk.Grid):
 
 
 class GifContainer(Gtk.Grid):
-    def __init__(self, filepath, size=100, *args, **kwargs):
+    def __init__(self, filepath, size=128, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.props.name = "stash-container"

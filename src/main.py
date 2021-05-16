@@ -25,12 +25,13 @@ gi.require_version('Granite', '1.0')
 from gi.repository import Gtk, Gdk, Gio, Granite, GLib
 
 from .window import StashedWindow
-
+from . import utils
 
 class Application(Gtk.Application):
 
     granite_settings = Granite.Settings.get_default()
     gtk_settings = Gtk.Settings.get_default()
+    utils = utils
 
     def __init__(self):
         super().__init__(application_id='com.github.hezral.stashed',

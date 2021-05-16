@@ -20,8 +20,22 @@ headerbar > box {
     padding-left: 2px;
 }
 
-fader {
-    transition: all 250ms ease-in-out;
+grid#stash-container, fader {
+    transition: all 500ms ease-in-out;
+}
+
+@keyframes crossfader {
+    0% { opacity: 0; } 
+    03.33% { opacity: 0; }
+    06.66% { opacity: 0; }
+    09.99% { opacity: 0; }
+    13.33% { opacity: 0.5; }
+    16.65% { opacity: 0.75; }
+    100% { opacity: 1; }	
+}
+
+grid#stash-container {
+    animation: crossfader 0.75s ease-in-out forwards;
 }
 
 label#search-keyword {

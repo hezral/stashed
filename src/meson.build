@@ -29,6 +29,7 @@ stashed_sources = [
   '__init__.py',
   'main.py',
   'window.py',
+  'utils.py',
 ]
 
 install_data(stashed_sources, install_dir: moduledir)
