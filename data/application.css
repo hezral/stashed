@@ -20,9 +20,9 @@ headerbar > box {
     padding-left: 2px;
 }
 
-grid#stash-container, fader {
+/* grid#stash-container, fader {
     transition: all 500ms ease-in-out;
-}
+} */
 
 @keyframes crossfader {
     0% { opacity: 0; } 
@@ -36,6 +36,20 @@ grid#stash-container, fader {
 
 grid#stash-container {
     animation: crossfader 0.75s ease-in-out forwards;
+}
+
+button#settings {
+    box-shadow: none;
+    border-style: none;
+    background: none;
+}
+
+/* button#settings:hover {
+    -gtk-icon-effect: highlight;
+} */
+
+button#settings:active {
+    opacity: 0.75;
 }
 
 label#search-keyword {

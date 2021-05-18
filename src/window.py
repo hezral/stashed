@@ -44,10 +44,51 @@ class StashedWindow(Handy.Window):
 
         self.app = self.props.application
 
+        self.header = self.generate_headerbar()
+        self.stash_stacked_grid = self.generate_stash_stacked()
+        self.stash_flowbox_grid = self.generate_stash_flowbox()
+        self.stashed_settings_grid = self.generate_stashed_settings()
+
+        self.stack = Gtk.Stack()
+        self.stack.props.transition_type = Gtk.StackTransitionType.CROSSFADE
+        self.stack.props.transition_duration = 250
+        self.stack.add_named(self.stash_stacked_grid, "stash-stacked")
+        self.stack.add_named(self.stash_flowbox_grid, "stash-flowbox")
+        self.stack.add_named(self.stashed_settings_grid, "stashed-settings")
+
+        grid = Gtk.Grid()
+        grid.props.expand = True
+        grid.attach(self.header, 0, 0, 1, 1)
+        grid.attach(self.stack, 0, 1, 1, 1)
+
+        self.add(grid)
+        self.props.resizable = False
+        self.props.window_position = Gtk.WindowPosition.MOUSE
+        self.show_all()
+        self.set_keep_above(True)
+        self.set_size_request(400, 400)
+
+        self.drag_and_drop_setup()
+        self.drag_and_grab_setup(self.stash_stacked)
+        self.drag_and_grab_setup(self.stash_flowbox)
+
+        self.connect("key-press-event", self.on_stash_filtered)
+
+    def generate_headerbar(self):
+        menu_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("com.github.hezral-menu-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        menu_button.props.always_show_image = True
+        menu_button.props.can_focus = False
+        menu_button.props.margin = 2
+        menu_button.set_size_request(16, 16)
+        menu_button.get_style_context().remove_class("image-button")
+        menu_button.get_style_context().add_class("titlebutton")
+        menu_button.connect("clicked", self.on_menu_clicked)
+
         search_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("system-search-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
         search_button.props.always_show_image = True
         search_button.props.can_focus = False
         search_button.props.margin = 2
+        search_button.props.margin_right = 0
         search_button.set_size_request(16, 16)
         search_button.get_style_context().remove_class("image-button")
         search_button.get_style_context().add_class("titlebutton")
@@ -58,43 +99,64 @@ class StashedWindow(Handy.Window):
         self.search_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
         self.search_revealer.add(search_button)
 
-        self.header = Handy.HeaderBar()
-        self.header.props.hexpand = True
-        self.header.props.title = "Stashed"
-        self.header.props.has_subtitle = False
-        self.header.props.show_close_button = True
-        self.header.props.decoration_layout = "close:"
-        self.header.get_style_context().add_class(Granite.STYLE_CLASS_DEFAULT_DECORATION)
-        self.header.get_style_context().add_class(Gtk.STYLE_CLASS_FLAT)
-        self.header.pack_end(self.search_revealer)
+        header = Handy.HeaderBar()
+        header.props.hexpand = True
+        header.props.title = "Stashed"
+        header.props.spacing = 0
+        header.props.has_subtitle = False
+        header.props.show_close_button = True
+        header.props.decoration_layout = "close:"
+        header.get_style_context().add_class(Granite.STYLE_CLASS_DEFAULT_DECORATION)
+        header.get_style_context().add_class(Gtk.STYLE_CLASS_FLAT)
+        header.pack_end(menu_button)
+        header.pack_end(self.search_revealer)
 
-        self.iconstack_overlay = Gtk.Overlay()
-        self.iconstack_overlay.props.name = "stack"
-        self.iconstack_overlay.props.expand = True
-        self.iconstack_overlay.props.valign = self.iconstack_overlay.props.halign = Gtk.Align.FILL
+        return header
 
-        self.stash_grid = Gtk.Grid()
-        self.stash_grid.props.can_focus = True
-        self.stash_grid.attach(self.iconstack_overlay, 0, 0, 1, 1)
-        self.stash_grid.connect("button-press-event", self.on_stash_grid_clicked)
-        
-        self.stash_items_flowbox = Gtk.FlowBox()
-        self.stash_items_flowbox.props.expand = True
-        self.stash_items_flowbox.props.homogeneous = True
-        self.stash_items_flowbox.props.row_spacing = 20
-        self.stash_items_flowbox.props.column_spacing = 20
-        self.stash_items_flowbox.props.max_children_per_line = 2
-        self.stash_items_flowbox.props.min_children_per_line = 2
-        self.stash_items_flowbox.props.margin = 20
-        self.stash_items_flowbox.props.valign = Gtk.Align.START
-        self.stash_items_flowbox.props.halign = Gtk.Align.FILL
-        self.stash_items_flowbox.props.selection_mode = Gtk.SelectionMode.MULTIPLE
-        self.stash_items_flowbox.connect("child-activated", self.on_stash_items_flowboxchild_activated)
-        self.stash_items_flowbox.connect("button-press-event", self.on_stash_grid_clicked)
+    def generate_stash_stacked(self):
+        self.stash_stacked = Gtk.Overlay()
+        self.stash_stacked.props.name = "stack"
+        self.stash_stacked.props.expand = True
+        self.stash_stacked.props.valign = self.stash_stacked.props.halign = Gtk.Align.FILL
+
+        clear_stash = Gtk.Button(label="Clear")
+        clear_stash.props.hexpand = True
+        clear_stash.props.margin = 10
+        clear_stash.props.halign = Gtk.Align.CENTER
+        clear_stash.connect("clicked", self.on_clear_stash)
+
+        self.clear_stash_revealer = Gtk.Revealer()
+        self.clear_stash_revealer.props.transition_duration = 2000
+        self.clear_stash_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
+        self.clear_stash_revealer.add(clear_stash)
+
+        stash_stacked_grid = Gtk.Grid()
+        stash_stacked_grid.props.can_focus = True
+        stash_stacked_grid.props.row_spacing = 2
+        stash_stacked_grid.attach(self.stash_stacked, 0, 0, 1, 1)
+        stash_stacked_grid.attach(self.clear_stash_revealer, 0, 1, 1, 1)
+        stash_stacked_grid.connect("button-press-event", self.on_stash_grid_clicked)
+
+        return stash_stacked_grid
+
+    def generate_stash_flowbox(self):
+        self.stash_flowbox = Gtk.FlowBox()
+        self.stash_flowbox.props.expand = True
+        self.stash_flowbox.props.homogeneous = True
+        self.stash_flowbox.props.row_spacing = 20
+        self.stash_flowbox.props.column_spacing = 20
+        self.stash_flowbox.props.max_children_per_line = 2
+        self.stash_flowbox.props.min_children_per_line = 2
+        self.stash_flowbox.props.margin = 20
+        self.stash_flowbox.props.valign = Gtk.Align.START
+        self.stash_flowbox.props.halign = Gtk.Align.FILL
+        self.stash_flowbox.props.selection_mode = Gtk.SelectionMode.MULTIPLE
+        self.stash_flowbox.connect("child-activated", self.on_stash_items_flowboxchild_activated)
+        self.stash_flowbox.connect("button-press-event", self.on_stash_grid_clicked)
 
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.props.expand = True
-        scrolled_window.add(self.stash_items_flowbox)
+        scrolled_window.add(self.stash_flowbox)
         
         self.search_keyword = Gtk.Label()
         self.search_keyword.props.name = "search-keyword"
@@ -103,31 +165,67 @@ class StashedWindow(Handy.Window):
         self.search_keyword_revealer = Gtk.Revealer()
         self.search_keyword_revealer.add(self.search_keyword)
 
-        stash_items_grid = Gtk.Grid()
-        stash_items_grid.attach(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), 0, 0, 1, 1)
-        stash_items_grid.attach(self.search_keyword_revealer, 0, 0, 1, 1)
-        stash_items_grid.attach(scrolled_window, 0, 1, 1, 1)
+        self.clear_keyword = Gtk.Button(image=Gtk.Image().new_from_icon_name("edit-clear-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        self.clear_keyword.props.halign = Gtk.Align.END
+        self.clear_keyword.connect("clicked", self.on_stash_unfiltered)
+        self.clear_keyword_revealer = Gtk.Revealer()
+        self.clear_keyword_revealer.add(self.clear_keyword)
 
-        self.stash_items_revealer = Gtk.Revealer()
-        self.stash_items_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
-        self.stash_items_revealer.add(stash_items_grid)
+        stash_flowbox_grid = Gtk.Grid()
+        stash_flowbox_grid.attach(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), 0, 0, 1, 1)
+        stash_flowbox_grid.attach(self.clear_keyword_revealer, 0, 0, 1, 1)
+        stash_flowbox_grid.attach(self.search_keyword_revealer, 0, 0, 1, 1)
+        stash_flowbox_grid.attach(scrolled_window, 0, 1, 1, 1)
 
-        self.grid = Gtk.Grid()
-        self.grid.props.expand = True
-        self.grid.attach(self.header, 0, 0, 1, 1)
-        self.grid.attach(self.stash_items_revealer, 0, 1, 1, 1)
-        self.grid.attach(self.stash_grid, 0, 1, 1, 1)
+        return stash_flowbox_grid
 
-        self.add(self.grid)
-        self.props.resizable = False
-        self.show_all()
-        self.set_keep_above(True)
-        self.set_size_request(400, 400)
-        self.app = self.props.application
+    def generate_stashed_settings(self):
+        stashed_settings_grid = Gtk.FlowBox()
+        stashed_settings_grid.props.expand = True
+        stashed_settings_grid.props.homogeneous = True
+        stashed_settings_grid.props.row_spacing = 20
+        stashed_settings_grid.props.column_spacing = 20
+        stashed_settings_grid.props.max_children_per_line = 2
+        stashed_settings_grid.props.min_children_per_line = 2
+        stashed_settings_grid.props.margin = 20
+        stashed_settings_grid.props.valign = Gtk.Align.START
+        stashed_settings_grid.props.halign = Gtk.Align.FILL
 
-        self.drag_and_drop_setup()
-        self.drag_and_grab_setup(self.iconstack_overlay)
-        self.drag_and_grab_setup(self.stash_items_flowbox)
+        add_shortcut = Gtk.Button(label="Add Shortcut", image=Gtk.Image().new_from_icon_name("com.github.hezral-shortcuts", Gtk.IconSize.DIALOG))
+        add_shortcut.props.name = "settings"
+        add_shortcut.props.always_show_image = True
+        add_shortcut.props.image_position = Gtk.PositionType.TOP
+        add_shortcut.connect("clicked", self.on_settings_action)
+        stashed_settings_grid.add(add_shortcut)
+
+        quit_stashed = Gtk.Button(label="Quit Stashed", image=Gtk.Image().new_from_icon_name("application-exit", Gtk.IconSize.DIALOG))
+        quit_stashed.props.name = "settings"
+        quit_stashed.props.always_show_image = True
+        quit_stashed.props.image_position = Gtk.PositionType.TOP
+        quit_stashed.connect("clicked", self.on_settings_action)
+        stashed_settings_grid.add(quit_stashed)
+
+        buy_me_coffee = Gtk.Button(label="Buy Me Coffee", image=Gtk.Image().new_from_icon_name("com.github.hezral-coffee", Gtk.IconSize.DIALOG))
+        buy_me_coffee.props.name = "settings"
+        buy_me_coffee.props.always_show_image = True
+        buy_me_coffee.props.image_position = Gtk.PositionType.TOP
+        buy_me_coffee.connect("clicked", self.on_settings_action)
+        stashed_settings_grid.add(buy_me_coffee)
+
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.props.expand = True
+        scrolled_window.add(stashed_settings_grid)
+
+        return scrolled_window
+
+    def on_settings_action(self, button):
+        if button.props.label == "Add Shortcut":
+            Gtk.show_uri_on_window(self, "settings://input/keyboard/shortcuts", GLib.get_current_time())
+
+        if button.props.label == "Quit Stashed":
+            self.destroy()
+        if button.props.label == "Buy Me Coffee":
+            Gtk.show_uri_on_window(None, "https://www.buymeacoffee.com/hezral", GLib.get_current_time())
 
     def on_stash_items_flowboxchild_activated(self, flowbox, flowboxchild):
         flowboxchild.get_children()[0].revealer.set_reveal_child(True)
@@ -137,23 +235,37 @@ class StashedWindow(Handy.Window):
             self.reveal_stash_grid()
 
     def on_search_clicked(self, button):
-        if len(self.iconstack_overlay.get_children()) != 0:
-            self.reveal_stash_grid()
+        self.reveal_stash_grid()
+
+    def on_menu_clicked(self, button):
+        if self.stack.get_visible_child() == self.stashed_settings_grid:
+            self.stack.set_visible_child(self.stash_stacked_grid)
+        else:
+            self.stack.set_visible_child(self.stashed_settings_grid)
+
+    def on_clear_stash(self, button):
+        for flowboxchild in self.stash_flowbox.get_children():
+            flowboxchild.destroy()
+
+        for child in self.stash_stacked.get_children():
+            child.destroy()
+
+        self.search_revealer.set_reveal_child(False)
+        self.clear_stash_revealer.set_reveal_child(False)
+        self.header.props.title = "Stashed"
 
     def reveal_stash_grid(self):
-        if self.stash_items_revealer.get_reveal_child():
-            self.stash_items_revealer.set_reveal_child(False)
-            if len(self.stash_items_flowbox.get_selected_children()) > 0:
-                self.stash_items_flowbox.unselect_all()
-                for flowboxchild in self.stash_items_flowbox.get_children():
+        if self.stack.get_visible_child() == self.stash_flowbox_grid:
+            self.stack.set_visible_child(self.stash_stacked_grid)
+            if len(self.stash_flowbox.get_selected_children()) > 0:
+                self.stash_flowbox.unselect_all()
+                for flowboxchild in self.stash_flowbox.get_children():
                     flowboxchild.get_children()[0].revealer.set_reveal_child(False)
             self.on_stash_unfiltered()
-            self.stash_grid.show_all()
-            self.disconnect_by_func(self.on_stash_filtered)
+            # self.disconnect_by_func(self.on_stash_filtered)
         else:
-            self.stash_items_revealer.set_reveal_child(True)
-            self.stash_grid.hide()
-            self.connect("key-press-event", self.on_stash_filtered)
+            self.stack.set_visible_child(self.stash_flowbox_grid)
+            # self.connect("key-press-event", self.on_stash_filtered)
 
     def drag_and_drop_setup(self):
         self.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
@@ -212,7 +324,7 @@ class StashedWindow(Handy.Window):
                 parsed_uri = urlparse(uri)
                 path, hostname = GLib.filename_from_uri(uri)
                 try:
-                    iconstack_child = [child for child in self.iconstack_overlay.get_children() if path == child.path][0]
+                    iconstack_child = [child for child in self.stash_stacked.get_children() if path == child.path][0]
                 except:
                     if os.path.exists(path):
                         if os.path.isdir(path):  
@@ -239,25 +351,26 @@ class StashedWindow(Handy.Window):
 
 
         import random
-        if len(self.iconstack_overlay.get_children()) != 1:
+        if len(self.stash_stacked.get_children()) != 1:
             margin = random.randint(24,64) + self.iconstack_offset
             set_margins = [icon.set_margin_bottom, icon.set_margin_top, icon.set_margin_left, icon.set_margin_right]
             random.choice(set_margins)(margin)
             random.choice(set_margins)(self.iconstack_offset + random.randint(10,1000) % 2)
 
-        self.iconstack_overlay.add_overlay(icon)
+        self.stash_stacked.add_overlay(icon)
 
-        self.stash_items_flowbox.add(StashItem(path, item))
+        self.stash_flowbox.add(StashItem(path, item))
 
         if self.iconstack_offset >= 30:
             self.iconstack_offset = 0
         else:
             self.iconstack_offset += 2
 
-        self.header.props.title = "{count} Stashed".format(count=len(self.iconstack_overlay.get_children()))
-        self.iconstack_overlay.show_all()
-        self.stash_items_flowbox.show_all()
+        self.header.props.title = "{count} Stashed".format(count=len(self.stash_stacked.get_children()))
+        self.stash_stacked.show_all()
+        self.stash_flowbox.show_all()
         self.search_revealer.set_reveal_child(True)
+        self.clear_stash_revealer.set_reveal_child(True)
 
     def filter_func(self, flowboxchild, search_text):
         stash_item_path = os.path.basename(flowboxchild.get_children()[0].get_child().get_children()[1].path)
@@ -266,28 +379,51 @@ class StashedWindow(Handy.Window):
         else:
             return False
 
-    def on_stash_unfiltered(self):
-        self.stash_items_flowbox.invalidate_filter()
-        self.stash_items_flowbox.set_filter_func(self.filter_func, "")
+    def on_stash_unfiltered(self, *args):
+        self.stash_flowbox.invalidate_filter()
+        self.stash_flowbox.set_filter_func(self.filter_func, "")
         self.search = []
-        self.stash_items_flowbox.unselect_all()
+        self.stash_flowbox.unselect_all()
         self.search_keyword_revealer.set_reveal_child(False)
+        self.clear_keyword_revealer.set_reveal_child(False)
         
     def on_stash_filtered(self, window, eventkey):
 
-        if eventkey.keyval == 65288:
-            self.on_stash_unfiltered()
-        elif eventkey.keyval == 65307:
-            pass
-        else:
-            if eventkey.string != "" and eventkey.state.first_value_name == "GDK_MOD2_MASK":
-                self.search_keyword_revealer.set_reveal_child(True)
-                self.search.append(eventkey.string)
-                keyword = ''.join(self.search)
-                self.stash_items_flowbox.invalidate_filter()
-                self.stash_items_flowbox.set_filter_func(self.filter_func, keyword)
-                self.search_keyword.props.label = keyword
-                    
+        key = Gdk.keyval_name(eventkey.keyval).lower()
+        key_length = len(key)
+        
+        # filter = False
+
+        if len(self.stash_stacked.get_children()) != 0:
+
+            if ('GDK_SHIFT_MASK' in eventkey.state.value_names and 'GDK_MOD2_MASK' in eventkey.state.value_names) and key == "backspace":
+                if self.stack.get_visible_child() == self.stash_flowbox_grid:
+                    self.on_stash_unfiltered()
+                    self.reveal_stash_grid()
+
+            elif (len(eventkey.state.value_names) == 1 and 'GDK_MOD2_MASK' in eventkey.state.value_names) and key == "backspace":
+                self.on_stash_unfiltered()
+            
+            elif key_length == 1:
+                if self.stack.get_visible_child() != self.stash_flowbox_grid:
+                    self.reveal_stash_grid()
+                self.trigger_stash_filter(key)
+                print(key, len(key), Gdk.keyval_name(eventkey.keyval), eventkey.keyval, eventkey.state.value_names)
+
+    def trigger_stash_filter(self, key):
+        self.search_keyword_revealer.set_reveal_child(True)
+        self.clear_keyword_revealer.set_reveal_child(True)
+        self.search.append(key)
+        keyword = ''.join(self.search)
+        self.stash_flowbox.invalidate_filter()
+        self.stash_flowbox.set_filter_func(self.filter_func, keyword)
+        self.search_keyword.props.label = keyword
+
+    def hide_on_close_window(self, window, event):
+        self.hide()
+        self.on_stash_unfiltered()
+        self.stack.set_visible_child(self.stash_stacked_grid)
+        return True
 
 class StashItem(Gtk.EventBox):
     def __init__(self, filepath, item, *args, **kwargs):
@@ -323,7 +459,7 @@ class StashItem(Gtk.EventBox):
     def on_select_button(self, button):
         if self.revealer.get_reveal_child():
             self.revealer.set_reveal_child(False)
-            self.get_toplevel().stash_items_flowbox.unselect_child(self.get_parent())
+            self.get_toplevel().stash_flowbox.unselect_child(self.get_parent())
 
 
 class ItemLabel(Gtk.Label):

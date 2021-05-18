@@ -1,3 +1,5 @@
+pkgdatadir = join_paths(get_option('prefix'), get_option('datadir'), meson.project_name())
+
 desktop_file = i18n.merge_file(
   input: 'com.github.hezral.stashed.desktop.in',
   output: 'com.github.hezral.stashed.desktop',
@@ -43,5 +45,15 @@ endif
 pkgdatadir = join_paths(get_option('prefix'), get_option('datadir'), meson.project_name())
 
 install_data('application.css',
-  install_dir: join_paths(pkgdatadir, meson.project_name().split()[-1], 'data')
+  install_dir: join_paths(pkgdatadir, 'stashed', 'data')
 )
+
+other_icon_sources = [
+  join_paths('icons', 'com.github.hezral' + '-' + 'coffee' + '.svg'),
+  join_paths('icons', 'com.github.hezral' + '-' + 'menu-symbolic' + '.svg'),
+  join_paths('icons', 'com.github.hezral' + '-' + 'select' + '.svg'),
+  join_paths('icons', 'com.github.hezral' + '-' + 'shortcuts' + '.svg'),
+  join_paths('icons', 'system-search' + '.svg'),
+]
+iconsdir = join_paths(pkgdatadir, 'stashed', 'data', 'icons')
+install_data(other_icon_sources, install_dir: iconsdir)

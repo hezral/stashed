@@ -29,6 +29,7 @@ stashed_sources = [
   '__init__.py',
   'main.py',
   'window.py',
+  'custom_dialog.py',
   'utils.py',
 ]
 

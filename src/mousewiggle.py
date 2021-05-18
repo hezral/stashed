@@ -15,11 +15,33 @@ from gi.repository import Gtk, Gdk, GLib
 
 import time
 import threading
+from datetime import datetime
 
 
 old_stdout = sys.stdout
 sys.stdout = open(os.devnull, 'w')
 
+SHAKE_DIST = 20
+SHAKE_SLICE_TIMEOUT = 75 # ms
+SHAKE_TIMEOUT = 500 # ms
+SHOWING_TIMEOUT = 750 #ms
+needed_shake_count = 4
+
+SENSITIVITY_HIGH = 2
+SENSITIVITY_MEDIUM = 4
+SENSITIVITY_LOW = 7
+
+showing_timestamp = datetime.now()
+shake_slice_timestamp = datetime.now()
+shake_timeout_timestamp = datetime.now()
+shake_count = 0
+
+new_x = 0
+old_x = 0
+min_x = 0
+max_x = 0
+has_min = 0
+has_max = 0
 
 def mousepos():
     """mousepos() --> (x, y) get the mouse coordinates on the screen"""
@@ -27,8 +49,7 @@ def mousepos():
     seat = display.get_default_seat()
     pointer = seat.get_pointer()
     position = pointer.get_position()
-    position_text = "x: " + str(position[1]) + " y: " + str(position[2])
-    return position_text
+    return position
 
 class MouseThread(threading.Thread):
     def __init__(self, parent, label):
@@ -48,8 +69,10 @@ class MouseThread(threading.Thread):
             if self.stopped():
                 break
             position = mousepos()
+
             GLib.idle_add(self.label.set_text, position)
-            time.sleep(0.15)
+            # print(datetime.now(), position)
+            time.sleep(0.2)
 
     def kill(self):
         self.killed = True

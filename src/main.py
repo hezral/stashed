@@ -57,11 +57,11 @@ class Application(Gtk.Application):
         self.main_window = self.props.active_window
         if not self.main_window:
             self.main_window = StashedWindow(application=self)
-            # self.main_window.connect("delete-event", self.hide_on_close_window)
+            self.main_window.connect("delete-event", self.main_window.hide_on_close_window)
 
-        # self.main_window.set_keep_above(True)
+        self.main_window.set_keep_above(True)
         self.main_window.present()
-        self.main_window.stash_grid.grab_focus()
+        self.main_window.stash_stacked.grab_focus()
         # GLib.timeout_add(100, self.main_window.set_keep_above, False) # need to put time gap else won't work to bring window front
 
         self.create_app_actions()
@@ -79,10 +79,6 @@ class Application(Gtk.Application):
     def on_hide_action(self, action, param):
         if self.main_window is not None:
             self.main_window.hide()
-
-    def hide_on_delete_window(self, window, event):
-        self.main_window.hide()
-        return True
 
     def on_quit_action(self, action, param):
         if self.main_window is not None:
