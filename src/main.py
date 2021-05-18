@@ -57,6 +57,7 @@ class Application(Gtk.Application):
         self.main_window = self.props.active_window
         if not self.main_window:
             self.main_window = StashedWindow(application=self)
+            # self.main_window.connect("delete-event", self.hide_on_close_window)
 
         # self.main_window.set_keep_above(True)
         self.main_window.present()
@@ -78,6 +79,10 @@ class Application(Gtk.Application):
     def on_hide_action(self, action, param):
         if self.main_window is not None:
             self.main_window.hide()
+
+    def hide_on_delete_window(self, window, event):
+        self.main_window.hide()
+        return True
 
     def on_quit_action(self, action, param):
         if self.main_window is not None:
