@@ -30,7 +30,7 @@ PLAINTEXT_DND_TARGET = Gtk.TargetEntry.new('text/plain', Gtk.TargetFlags.SAME_AP
 URI_DND_TARGET = Gtk.TargetEntry.new('text/uri-list', Gtk.TargetFlags.SAME_APP, 0)
 TARGETS = [URI_DND_TARGET, IMAGE_DND_TARGET, UTF8TEXT_DND_TARGET, PLAINTEXT_DND_TARGET]
 
-class StashedWindow(Handy.Window):
+class StashedWindow(Handy.ApplicationWindow):
     __gtype_name__ = 'StashedWindow'
 
     iconstack_offset = 0
