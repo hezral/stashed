@@ -20,9 +20,11 @@ import gi
 gi.require_version('Handy', '1')
 gi.require_version('Gtk', '3.0')
 gi.require_version('Granite', '1.0')
-from gi.repository import Gtk, Handy, Gdk, Gio, Granite, GLib, GdkPixbuf, Pango
+from gi.repository import GObject, GLib, Gtk, Handy, Gdk, Gio, Granite, GdkPixbuf, Pango
 
 from .utils import *
+from .shake_to_reveal import ShakeListener
+from .custom_widgets import CustomDialog, Settings
 
 IMAGE_DND_TARGET = Gtk.TargetEntry.new('image/png', Gtk.TargetFlags.SAME_APP, 0)
 UTF8TEXT_DND_TARGET = Gtk.TargetEntry.new('text/plain;charset=utf-8', Gtk.TargetFlags.SAME_APP, 0)
@@ -33,9 +35,12 @@ TARGETS = [URI_DND_TARGET, IMAGE_DND_TARGET, UTF8TEXT_DND_TARGET, PLAINTEXT_DND_
 class StashedWindow(Handy.ApplicationWindow):
     __gtype_name__ = 'StashedWindow'
 
+    GObject.signal_new("held", Gtk.Button, GObject.SIGNAL_RUN_LAST, GObject.TYPE_BOOLEAN, [GObject.TYPE_PYOBJECT])
+
     iconstack_offset = 0
     search = []
     search_result = 0
+    close_timeout_id = None
 
     Handy.init()
 
@@ -44,24 +49,29 @@ class StashedWindow(Handy.ApplicationWindow):
 
         self.app = self.props.application
 
+        self.mouse_listener = ShakeListener(self.app)
+
         self.header = self.generate_headerbar()
         self.stash_stacked_grid = self.generate_stash_stacked()
         self.stash_flowbox_grid = self.generate_stash_flowbox()
-        self.stashed_settings_grid = self.generate_stashed_settings()
+        # self.stashed_settings_grid = self.generate_stashed_settings()
+        self.message_display_grid = self.generate_message_display()
 
         self.stack = Gtk.Stack()
         self.stack.props.transition_type = Gtk.StackTransitionType.CROSSFADE
         self.stack.props.transition_duration = 250
         self.stack.add_named(self.stash_stacked_grid, "stash-stacked")
         self.stack.add_named(self.stash_flowbox_grid, "stash-flowbox")
-        self.stack.add_named(self.stashed_settings_grid, "stashed-settings")
+        # self.stack.add_named(self.stashed_settings_grid, "stashed-settings")
+        self.stack.add_named(self.message_display_grid, "message-display")
 
-        grid = Gtk.Grid()
-        grid.props.expand = True
-        grid.attach(self.header, 0, 0, 1, 1)
-        grid.attach(self.stack, 0, 1, 1, 1)
+        self.grid = Gtk.Grid()
+        self.grid.props.name = "main"
+        self.grid.props.expand = True
+        self.grid.attach(self.header, 0, 0, 1, 1)
+        self.grid.attach(self.stack, 0, 1, 1, 1)
 
-        self.add(grid)
+        self.add(self.grid)
         self.props.resizable = False
         self.props.window_position = Gtk.WindowPosition.MOUSE
         self.show_all()
@@ -75,16 +85,31 @@ class StashedWindow(Handy.ApplicationWindow):
         self.connect("key-press-event", self.on_stash_filtered)
 
     def generate_headerbar(self):
-        menu_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("com.github.hezral-menu-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        close_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("application-exit", Gtk.IconSize.SMALL_TOOLBAR))
+        close_button.props.name = "custom-close"
+        close_button.props.always_show_image = True
+        close_button.props.can_focus = False
+        close_button.props.margin = 2
+        close_button.set_size_request(16, 16)
+        close_button.get_style_context().remove_class("image-button")
+        close_button.get_style_context().add_class("titlebutton")
+        close_button.connect("clicked", self.on_close_window)
+        close_button.connect("button-press-event", self.on_close_pressed)
+        close_button.connect("held", self.on_close_held)
+
+        menu_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("com.github.hezral-settings-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        menu_button.props.name = "custom-menu"
         menu_button.props.always_show_image = True
         menu_button.props.can_focus = False
         menu_button.props.margin = 2
         menu_button.set_size_request(16, 16)
         menu_button.get_style_context().remove_class("image-button")
         menu_button.get_style_context().add_class("titlebutton")
-        menu_button.connect("clicked", self.on_menu_clicked)
+        # menu_button.connect("clicked", self.on_menu_clicked)
+        menu_button.connect("clicked", self.on_settings_clicked)
 
         search_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("system-search-symbolic", Gtk.IconSize.SMALL_TOOLBAR))
+        search_button.props.name = "custom-search"
         search_button.props.always_show_image = True
         search_button.props.can_focus = False
         search_button.props.margin = 2
@@ -101,23 +126,56 @@ class StashedWindow(Handy.ApplicationWindow):
 
         header = Handy.HeaderBar()
         header.props.hexpand = True
-        header.props.title = "Stashed"
+        # header.props.title = "Stashed"
+        # header.props.valign = Gtk.Align.START
+        # header.props.halign = Gtk.Align.FILL
         header.props.spacing = 0
         header.props.has_subtitle = False
-        header.props.show_close_button = True
-        header.props.decoration_layout = "close:"
+        header.props.show_close_button = False
+        header.props.decoration_layout = ":"
         header.get_style_context().add_class(Granite.STYLE_CLASS_DEFAULT_DECORATION)
         header.get_style_context().add_class(Gtk.STYLE_CLASS_FLAT)
+        header.pack_start(close_button)
         header.pack_end(menu_button)
         header.pack_end(self.search_revealer)
 
         return header
+
+    def generate_message_display(self):
+        self.message_display = Gtk.Label()
+        self.message_display.props.name = "message-display"
+        
+        self.message_display_revealer = Gtk.Revealer()
+        self.message_display_revealer.props.transition_duration = 250
+        self.message_display_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
+        self.message_display_revealer.add(self.message_display)
+
+        message_diplay_grid = Gtk.Grid()
+        message_diplay_grid.props.can_focus = True
+        message_diplay_grid.props.row_spacing = 2
+        message_diplay_grid.props.halign = message_diplay_grid.props.valign = Gtk.Align.CENTER
+        message_diplay_grid.attach(self.message_display_revealer, 0, 0, 1, 1)
+
+        return message_diplay_grid
 
     def generate_stash_stacked(self):
         self.stash_stacked = Gtk.Overlay()
         self.stash_stacked.props.name = "stack"
         self.stash_stacked.props.expand = True
         self.stash_stacked.props.valign = self.stash_stacked.props.halign = Gtk.Align.FILL
+
+        stash_zone = Gtk.Grid()
+        stash_zone.props.expand = True
+        stash_zone.props.margin_bottom = 20
+        stash_zone.props.margin_left = 20
+        stash_zone.props.margin_right = 20
+        stash_zone.props.halign = stash_zone.props.valign = Gtk.Align.FILL
+        stash_zone.get_style_context().add_class("stash-zone")
+
+        self.stash_zone_revealer = Gtk.Revealer()
+        self.stash_zone_revealer.props.transition_duration = 250
+        self.stash_zone_revealer.props.transition_type = Gtk.RevealerTransitionType.CROSSFADE
+        self.stash_zone_revealer.add(stash_zone)
 
         clear_stash = Gtk.Button(label="Clear")
         clear_stash.props.hexpand = True
@@ -135,6 +193,7 @@ class StashedWindow(Handy.ApplicationWindow):
         stash_stacked_grid.props.row_spacing = 2
         stash_stacked_grid.attach(self.stash_stacked, 0, 0, 1, 1)
         stash_stacked_grid.attach(self.clear_stash_revealer, 0, 1, 1, 1)
+        stash_stacked_grid.attach(self.stash_zone_revealer, 0, 0, 1, 2)
         stash_stacked_grid.connect("button-press-event", self.on_stash_grid_clicked)
 
         return stash_stacked_grid
@@ -198,13 +257,6 @@ class StashedWindow(Handy.ApplicationWindow):
         add_shortcut.connect("clicked", self.on_settings_action)
         stashed_settings_grid.add(add_shortcut)
 
-        quit_stashed = Gtk.Button(label="Quit Stashed", image=Gtk.Image().new_from_icon_name("application-exit", Gtk.IconSize.DIALOG))
-        quit_stashed.props.name = "settings"
-        quit_stashed.props.always_show_image = True
-        quit_stashed.props.image_position = Gtk.PositionType.TOP
-        quit_stashed.connect("clicked", self.on_settings_action)
-        stashed_settings_grid.add(quit_stashed)
-
         buy_me_coffee = Gtk.Button(label="Buy Me Coffee", image=Gtk.Image().new_from_icon_name("com.github.hezral-coffee", Gtk.IconSize.DIALOG))
         buy_me_coffee.props.name = "settings"
         buy_me_coffee.props.always_show_image = True
@@ -217,6 +269,27 @@ class StashedWindow(Handy.ApplicationWindow):
         scrolled_window.add(stashed_settings_grid)
 
         return scrolled_window
+
+    def generate_settings_dialog(self):
+
+        self.settings_grid = Settings(gtk_application=self.app)
+
+        self.settings_dialog = CustomDialog(
+            dialog_parent_widget=self,
+            dialog_title="Keystrokes Settings",
+            dialog_content_widget=self.settings_grid,
+            action_button_label=None,
+            action_button_name=None,
+            action_callback=None,
+            action_type=None,
+            size=[500, 400],
+            data=None
+        )
+
+        self.settings_dialog.header.props.show_close_button = True
+
+    def on_settings_clicked(self, button):
+        self.generate_settings_dialog()
 
     def on_settings_action(self, button):
         if button.props.label == "Add Shortcut":
@@ -243,6 +316,48 @@ class StashedWindow(Handy.ApplicationWindow):
         else:
             self.stack.set_visible_child(self.stashed_settings_grid)
 
+    def on_close_window(self, button):
+        if self.timeout_id:
+            self.hide()
+            self.on_stash_unfiltered()
+            self.stack.set_visible_child(self.stash_stacked_grid)
+            GLib.source_remove(self.timeout_id)
+            self.timeout_id = None
+            self.mouse_listener.init_variables()
+            self.mouse_listener.init_listener()
+        else:
+            button.stop_emission_by_name("clicked")
+
+    def on_close_pressed(self, button=None, eventbutton=None):
+        self.timeout_id = GLib.timeout_add(1000, self.on_close_held_timeout, button)
+
+    def on_close_held_timeout(self, button):
+        self.timeout_id = None
+        button.emit("held", None)
+        return False
+
+    def on_close_held(self, *args):
+        self.message_display_revealer.set_reveal_child(True)
+        self.stack.set_visible_child(self.message_display_grid)
+        self.timeout_on_quit()
+
+    def timeout_on_quit(self):
+        def update_label(timeout):
+            self.message_display.props.label = "Quit in {i}".format(i=timeout)
+
+        @self.app.utils.run_async
+        def timeout_label(self, label):
+            import time
+            for i in reversed(range(1,3)):
+                GLib.idle_add(update_label, (i))
+                time.sleep(1)
+            try:
+                self.destroy()
+            except:
+                pass
+
+        timeout_label(self, self.message_display)
+
     def on_clear_stash(self, button):
         for flowboxchild in self.stash_flowbox.get_children():
             flowboxchild.destroy()
@@ -252,7 +367,7 @@ class StashedWindow(Handy.ApplicationWindow):
 
         self.search_revealer.set_reveal_child(False)
         self.clear_stash_revealer.set_reveal_child(False)
-        self.header.props.title = "Stashed"
+        self.header.props.title = ""
 
     def reveal_stash_grid(self):
         if self.stack.get_visible_child() == self.stash_flowbox_grid:
@@ -272,23 +387,32 @@ class StashedWindow(Handy.ApplicationWindow):
         self.drag_dest_add_uri_targets()
         self.drag_dest_add_image_targets()
         self.connect("drag_data_received", self.on_drag_data_received)
+        self.connect("drag_drop", self.on_drag_drop)
+        self.connect("drag_motion", self.on_drag_motion)
+        self.connect("drag_leave", self.on_drag_drop)
 
     def drag_and_grab_setup(self, widget):
         widget.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, [], Gdk.DragAction.COPY)
         widget.drag_source_add_uri_targets()
         # widget.connect("drag_data_get", self.on_drag_data_get)
         widget.connect("drag_end", self.grab_from_stash)
-    
-    def dnd_debug(self, *args):
-        print(locals())
+
+    def on_drag_drop(self, *args):
+        self.stash_zone_revealer.set_reveal_child(False)
+        self.clear_stash_revealer.set_reveal_child(True)
+        self.search_revealer.set_reveal_child(True)
+
+    def on_drag_motion(self, *args):
+        self.clear_stash_revealer.set_reveal_child(False)
+        self.search_revealer.set_reveal_child(False)
+        self.stash_zone_revealer.set_reveal_child(True)
 
     def on_drag_data_get(self, widget, drag_context, data, info, timestamp):
-        # print(locals())
         Gtk.drag_set_icon_widget(drag_context, self.iconstack_drag_widget, -2, -2)
         
     def on_drag_data_received(self, widget, context, x, y, data, info, timestamp):
         self.add_to_stash(data.get_target(), data)
-        Gtk.drag_finish(context, True, False, timestamp) 
+        Gtk.drag_finish(context, True, False, timestamp)
 
     def grab_from_stash(self, widget, drag_context):
         uris = []
@@ -305,8 +429,8 @@ class StashedWindow(Handy.ApplicationWindow):
         uri_list = '\n'.join(uris)
         uri = 'copy' + uri_list
         
-        stashed_window = self.app.utils.get_xlib_window_by_gtk_application_id(self.app.props.application_id)
-        self.app.utils.copy_to_clipboard(uri)
+        stashed_window = self.app.utils.get_window_by_gtk_application_id_xlib(self.app.props.application_id)
+        self.app.utils.copy_files_to_clipboard(uri)
         self.app.utils.set_active_window_by_pointer()
         self.app.utils.paste_from_clipboard()
         self.app.utils.set_active_window_by_xwindow(stashed_window)
@@ -315,8 +439,6 @@ class StashedWindow(Handy.ApplicationWindow):
     def add_to_stash(self, target, data):
         from urllib.parse import urlparse
         import time
-
-        print(target)
 
         if str(target) == "text/uri-list":
             uris = data.get_uris()
@@ -419,11 +541,7 @@ class StashedWindow(Handy.ApplicationWindow):
         self.stash_flowbox.set_filter_func(self.filter_func, keyword)
         self.search_keyword.props.label = keyword
 
-    def hide_on_close_window(self, window, event):
-        self.hide()
-        self.on_stash_unfiltered()
-        self.stack.set_visible_child(self.stash_stacked_grid)
-        return True
+
 
 class StashItem(Gtk.EventBox):
     def __init__(self, filepath, item, *args, **kwargs):

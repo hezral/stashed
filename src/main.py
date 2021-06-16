@@ -31,6 +31,7 @@ class Application(Gtk.Application):
 
     granite_settings = Granite.Settings.get_default()
     gtk_settings = Gtk.Settings.get_default()
+    gio_settings = Gio.Settings(schema_id="com.github.hezral.stashed")
     utils = utils
 
     def __init__(self):
@@ -57,13 +58,8 @@ class Application(Gtk.Application):
         self.main_window = self.props.active_window
         if not self.main_window:
             self.main_window = StashedWindow(application=self)
-            self.main_window.connect("delete-event", self.main_window.hide_on_close_window)
 
-        self.main_window.set_keep_above(True)
-        self.main_window.present()
-        self.main_window.stash_stacked.grab_focus()
-        # GLib.timeout_add(100, self.main_window.set_keep_above, False) # need to put time gap else won't work to bring window front
-
+        self.on_show_window()
         self.create_app_actions()
 
     def on_prefers_color_scheme(self, *args):
@@ -84,8 +80,12 @@ class Application(Gtk.Application):
         if self.main_window is not None:
             self.main_window.destroy()
 
+    def on_show_window(self):
+        self.main_window.set_keep_above(True)
+        self.main_window.present()
+        self.main_window.stash_stacked.grab_focus()
+
     def create_app_actions(self):
-        # app actions
         self.create_action("hide", self.on_hide_action, "Escape")
         self.create_action("quit", self.on_quit_action, "<Ctrl>Q")
 

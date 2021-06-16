@@ -65,14 +65,16 @@ modules:
         - --share=network
     build-commands:
       - "pip3 install --prefix=${FLATPAK_DEST} python-xlib"
+
+  - name: pynput
+    buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
+    build-commands:
+      - "pip3 install --prefix=${FLATPAK_DEST} pynput"
   
-  # - name: webp
-  #   buildsystem: simple
-  #   build-options:
-  #     build-args:
-  #       - --share=network
-  #   build-commands:
-  #     - "pip3 install --prefix=${FLATPAK_DEST} webp"
+
 
   - name: stashed
     buildsystem: meson

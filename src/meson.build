@@ -1,13 +1,6 @@
 pkgdatadir = join_paths(get_option('prefix'), get_option('datadir'), meson.project_name())
 moduledir = join_paths(pkgdatadir, 'stashed')
-gnome = import('gnome')
 
-gnome.compile_resources('stashed',
-  'stashed.gresource.xml',
-  gresource_bundle: true,
-  install: true,
-  install_dir: pkgdatadir,
-)
 
 python = import('python')
 
@@ -29,7 +22,8 @@ stashed_sources = [
   '__init__.py',
   'main.py',
   'window.py',
-  'custom_dialog.py',
+  'custom_widgets.py',
+  'shake_to_reveal.py',
   'utils.py',
 ]
 
