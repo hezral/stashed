@@ -41,6 +41,7 @@ class StashedWindow(Handy.ApplicationWindow):
     search = []
     search_result = 0
     close_timeout_id = None
+    shake_listener = None
 
     Handy.init()
 
@@ -49,12 +50,9 @@ class StashedWindow(Handy.ApplicationWindow):
 
         self.app = self.props.application
 
-        self.mouse_listener = ShakeListener(self.app)
-
         self.header = self.generate_headerbar()
         self.stash_stacked_grid = self.generate_stash_stacked()
         self.stash_flowbox_grid = self.generate_stash_flowbox()
-        # self.stashed_settings_grid = self.generate_stashed_settings()
         self.message_display_grid = self.generate_message_display()
 
         self.stack = Gtk.Stack()
@@ -62,7 +60,6 @@ class StashedWindow(Handy.ApplicationWindow):
         self.stack.props.transition_duration = 250
         self.stack.add_named(self.stash_stacked_grid, "stash-stacked")
         self.stack.add_named(self.stash_flowbox_grid, "stash-flowbox")
-        # self.stack.add_named(self.stashed_settings_grid, "stashed-settings")
         self.stack.add_named(self.message_display_grid, "message-display")
 
         self.grid = Gtk.Grid()
@@ -78,11 +75,15 @@ class StashedWindow(Handy.ApplicationWindow):
         self.set_keep_above(True)
         self.set_size_request(400, 400)
 
+        self.setup_display_settings()
+
         self.drag_and_drop_setup()
         self.drag_and_grab_setup(self.stash_stacked)
         self.drag_and_grab_setup(self.stash_flowbox)
 
         self.connect("key-press-event", self.on_stash_filtered)
+
+        self.setup_shake_listener()
 
     def generate_headerbar(self):
         close_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("application-exit", Gtk.IconSize.SMALL_TOOLBAR))
@@ -276,7 +277,7 @@ class StashedWindow(Handy.ApplicationWindow):
 
         self.settings_dialog = CustomDialog(
             dialog_parent_widget=self,
-            dialog_title="Keystrokes Settings",
+            dialog_title="Stashed Settings",
             dialog_content_widget=self.settings_grid,
             action_button_label=None,
             action_button_name=None,
@@ -287,6 +288,37 @@ class StashedWindow(Handy.ApplicationWindow):
         )
 
         self.settings_dialog.header.props.show_close_button = True
+
+    def setup_display_settings(self):
+        # this is for tracking window state flags for persistent mode
+        self.state_flags_changed_count = 0
+        self.active_state_flags = ['GTK_STATE_FLAG_NORMAL', 'GTK_STATE_FLAG_DIR_LTR']
+        # read settings
+        if not self.app.gio_settings.get_value("persistent-mode"):
+            self.state_flags_on = self.connect("state-flags-changed", self.on_persistent_mode)
+            # print('state-flags-on')
+        if self.app.gio_settings.get_value("sticky-mode"):
+            self.stick()
+        if self.app.gio_settings.get_value("always-on-top"):
+            self.set_keep_above(True)
+
+    def setup_shake_listener(self, *args):
+        if self.shake_listener is not None:
+            self.shake_listener.listener.stop()
+            self.shake_listener = None
+        if self.app.gio_settings.get_value("shake-reveal"):
+            self.shake_listener = ShakeListener(app=self.app, sensitivity=self.app.gio_settings.get_int("shake-sensitivity"))
+
+    def on_persistent_mode(self, widget, event):
+        # state flags for window active state
+        self.state_flags = self.get_state_flags().value_names
+        # print(self.state_flags)
+        if not self.state_flags == self.active_state_flags and self.state_flags_changed_count > 1:
+            self.hide()
+            self.state_flags_changed_count = 0
+        else:
+            self.state_flags_changed_count += 1
+            # print('state-flags-changed', self.state_flags_changed_count)
 
     def on_settings_clicked(self, button):
         self.generate_settings_dialog()
@@ -323,8 +355,9 @@ class StashedWindow(Handy.ApplicationWindow):
             self.stack.set_visible_child(self.stash_stacked_grid)
             GLib.source_remove(self.timeout_id)
             self.timeout_id = None
-            self.mouse_listener.init_variables()
-            self.mouse_listener.init_listener()
+            if self.shake_listener is not None:
+                self.shake_listener.init_variables()
+                # self.shake_listener.init_listener()
         else:
             button.stop_emission_by_name("clicked")
 
@@ -399,8 +432,9 @@ class StashedWindow(Handy.ApplicationWindow):
 
     def on_drag_drop(self, *args):
         self.stash_zone_revealer.set_reveal_child(False)
-        self.clear_stash_revealer.set_reveal_child(True)
-        self.search_revealer.set_reveal_child(True)
+        if len(self.stash_stacked.get_children()) != 0:
+            self.clear_stash_revealer.set_reveal_child(True)
+            self.search_revealer.set_reveal_child(True)
 
     def on_drag_motion(self, *args):
         self.clear_stash_revealer.set_reveal_child(False)
@@ -473,7 +507,7 @@ class StashedWindow(Handy.ApplicationWindow):
 
 
         import random
-        if len(self.stash_stacked.get_children()) != 1:
+        if len(self.stash_stacked.get_children()) != 0:
             margin = random.randint(24,64) + self.iconstack_offset
             set_margins = [icon.set_margin_bottom, icon.set_margin_top, icon.set_margin_left, icon.set_margin_right]
             random.choice(set_margins)(margin)

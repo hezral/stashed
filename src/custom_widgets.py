@@ -19,7 +19,7 @@ from Xlib.protocol import event
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Granite', '1.0')
-from gi.repository import Gtk, Granite, Gdk, Pango, Gio
+from gi.repository import Gtk, Granite, Gdk, Pango, Gio, GObject, GLib
 
 
 class CustomDialog(Gtk.Window):
@@ -231,23 +231,122 @@ class Settings(Gtk.Grid):
         self.app = gtk_application
 
         self.set_orientation(Gtk.Orientation.VERTICAL)
-        self.props.row_spacing = 8
+        self.props.row_spacing = 10
 
-        sticky_mode = SubSettings(type="switch", name="sticky-mode", label="Sticky mode", sublabel="Display on all workspaces",separator=True)
+        # display -------------------------------------------------
+        theme_switch = SubSettings(type="switch", name="theme-switch", label="Switch between Dark/Light theme", sublabel=None, separator=False)
+        theme_optin = SubSettings(type="checkbutton", name="theme-optin", label=None, sublabel=None, separator=True, params=("Follow system appearance style",))
+
+        theme_switch.switch.bind_property("active", self.app.gtk_settings, "gtk-application-prefer-dark-theme", GObject.BindingFlags.SYNC_CREATE)
+
+        self.app.granite_settings.connect("notify::prefers-color-scheme", self.on_appearance_style_change, theme_switch)
+        theme_switch.switch.connect_after("notify::active", self.on_switch_activated)
+        theme_optin.checkbutton.connect_after("notify::active", self.on_checkbutton_activated, theme_switch)
+        
+        self.app.gio_settings.bind("prefer-dark-style", theme_switch.switch, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.app.gio_settings.bind("theme-optin", theme_optin.checkbutton, "active", Gio.SettingsBindFlags.DEFAULT)
+
+        persistent_mode = SubSettings(type="switch", name="persistent-mode", label="Persistent mode", sublabel="Stays open and updates as new clips added",separator=True)
+        persistent_mode.switch.connect_after("notify::active", self.on_switch_activated)
+        self.app.gio_settings.bind("persistent-mode", persistent_mode.switch, "active", Gio.SettingsBindFlags.DEFAULT)
+        
+        sticky_mode = SubSettings(type="switch", name="sticky-mode", label="Sticky mode", sublabel="Display on all workspaces",separator=False)
         sticky_mode.switch.connect_after("notify::active", self.on_switch_activated)
-        # self.app.gio_settings.bind("sticky-mode", sticky_mode.switch, "active", Gio.SettingsBindFlags.DEFAULT)
+        self.app.gio_settings.bind("sticky-mode", sticky_mode.switch, "active", Gio.SettingsBindFlags.DEFAULT)
 
-        display_behaviour_settings = SettingsGroup(None, (sticky_mode, ))
+        always_on_top = SubSettings(type="switch", name="always-on-top", label="Always on top", sublabel="Display above all windows",separator=True)
+        always_on_top.switch.connect_after("notify::active", self.on_switch_activated)
+        self.app.gio_settings.bind("always-on-top", always_on_top.switch, "active", Gio.SettingsBindFlags.DEFAULT)
+
+        display_behaviour_settings = SettingsGroup("Display", (theme_switch, theme_optin, persistent_mode, always_on_top, sticky_mode, ))
         self.add(display_behaviour_settings)
 
+        # Behaviour -------------------------------------------------
+        shake_reveal = SubSettings(type="switch", name="shake-reveal", label="Shake to reveal", sublabel="Shake mouse to reveal app",separator=True)
+        shake_reveal.switch.connect_after("notify::active", self.on_switch_activated)
+        self.app.gio_settings.bind("shake-reveal", shake_reveal.switch, "active", Gio.SettingsBindFlags.DEFAULT)
 
+        shake_sensitivity = SubSettings(type="spinbutton", name="shake-sensitivity", label="Shake sensitivity", sublabel="Adjust shake to reveal sensitivity", separator=False, params=(3,10,1))
+        shake_sensitivity.spinbutton.connect("value-changed", self.on_spinbutton_activated)
+        self.app.gio_settings.bind("shake-sensitivity", shake_sensitivity.spinbutton, "value", Gio.SettingsBindFlags.DEFAULT)
+
+        app_settings = SettingsGroup("Behaviour (restart required)", (shake_reveal, shake_sensitivity, ))
+        self.add(app_settings)
     
+
+    def on_checkbutton_activated(self, checkbutton, gparam, widget):
+        name = checkbutton.get_name()
+        theme_switch = widget
+        if name == "theme-optin":
+            if self.app.gio_settings.get_value("theme-optin"):
+                prefers_color_scheme = self.app.granite_settings.get_prefers_color_scheme()
+                sensitive = False
+            else:
+                prefers_color_scheme = Granite.SettingsColorScheme.NO_PREFERENCE
+                theme_switch.switch.props.active = self.app.gio_settings.get_value("prefer-dark-style")
+                sensitive = True
+
+            self.app.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
+            self.app.granite_settings.connect("notify::prefers-color-scheme", self.app.on_prefers_color_scheme)
+
+            if "DARK" in prefers_color_scheme.value_name:
+                active = True
+            else:
+                active = False
+
+            theme_switch.switch.props.active = active
+            theme_switch.props.sensitive = sensitive
+
+    def on_appearance_style_change(self, granite_settings, gparam, widget):
+        theme_switch = widget
+        if theme_switch.switch.props.active:
+            theme_switch.switch.props.active = False
+        else:
+            theme_switch.switch.props.active = True
+
+    def on_spinbutton_activated(self, spinbutton):        
+        name = spinbutton.get_name()
+        main_window = self.app.main_window
+
+        # if self.is_visible():
+            # if name == "shake-sensitivity":
+                # GLib.idle_add(main_window.setup_mouse_listener, None)
+
     def on_switch_activated(self, switch, gparam):
         name = switch.get_name()
+        main_window = self.app.main_window
         
         if self.is_visible():
+
+            if name == "persistent-mode":
+                if switch.get_active():
+                    # print('state-flags-on')
+                    main_window.disconnect_by_func(main_window.on_persistent_mode)
+                else:
+                    main_window.connect("state-flags-changed", main_window.on_persistent_mode)
+                    # print('state-flags-off')
+
             if name == "sticky-mode":
                 if switch.get_active():
-                    self.app.main_window.stick()
+                    main_window.stick()
                 else:
-                    self.app.main_window.unstick()
+                    main_window.unstick()
+
+            if name == "always-on-top":
+                if switch.get_active():
+                    main_window.set_keep_above(True)
+                else:
+                    main_window.set_keep_above(False)
+
+            # if name == "shake-reveal":
+            #     # main_window.setup_shake_listener()
+            #     if switch.get_active():
+            #         print("enable-shake")
+            #         main_window.setup_shake_listener()
+            #         print(main_window.shake_listener.listener)
+            #         print(main_window.shake_listener.running)
+            #     else:
+            #         print("disable-shake")
+            #         main_window.shake_listener.remove_listener()
+            #         print(main_window.shake_listener.listener)
+            #         print(main_window.shake_listener.running)

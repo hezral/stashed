@@ -94,7 +94,7 @@ scrolledwindow > undershoot.bottom {
 
 .stash-zone {
     border-color: @accent_color_500;
-    border-style: dotted;
+    border-style: dashed;
     border-width: 3px;
     animation: pulsing 1.75s ease-in-out infinite;
 }

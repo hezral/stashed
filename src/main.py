@@ -33,6 +33,7 @@ class Application(Gtk.Application):
     gtk_settings = Gtk.Settings.get_default()
     gio_settings = Gio.Settings(schema_id="com.github.hezral.stashed")
     utils = utils
+    running = False
 
     def __init__(self):
         super().__init__(application_id='com.github.hezral.stashed',
@@ -40,9 +41,10 @@ class Application(Gtk.Application):
         
         self.main_window = None
 
-        # prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
-        # self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
-        # self.granite_settings.connect("notify::prefers-color-scheme", self.on_prefers_color_scheme)
+        if self.gio_settings.get_value("theme-optin"):
+            prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
+            self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
+            self.granite_settings.connect("notify::prefers-color-scheme", self.on_prefers_color_scheme)
 
         provider = Gtk.CssProvider()        
         provider.load_from_path(os.path.join(os.path.dirname(__file__), "data", "application.css"))
@@ -60,7 +62,10 @@ class Application(Gtk.Application):
             self.main_window = StashedWindow(application=self)
 
         self.on_show_window()
+
         self.create_app_actions()
+
+        self.running = True
 
     def on_prefers_color_scheme(self, *args):
         prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()

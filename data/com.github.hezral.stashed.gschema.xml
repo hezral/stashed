@@ -1,5 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="stashed">
 	<schema id="com.github.hezral.stashed" path="/com/github/hezral/stashed/">
+        <key type="b" name="theme-optin">
+            <default>false</default>
+            <summary>Follow OS Appearance Style</summary>
+            <description>Follow OS Appearance Style</description>
+        </key>
+            <key type="b" name="prefer-dark-style">
+            <default>false</default>
+            <summary>If the dark Gtk stylesheet should be used</summary>
+            <description>If the dark Gtk stylesheet should be used</description>
+        </key>
+        <key type="b" name="first-run">
+            <default>true</default>
+            <summary>Whether this is the first time app is run</summary>
+            <description>Used to determine whether or not to perform initial install steps</description>
+        </key>
+        <key type="b" name="persistent-mode">
+            <default>true</default>
+            <summary>Close on focus out of app window</summary>
+            <description>Close on focus out of app window</description>
+        </key>
+        <key type="b" name="sticky-mode">
+            <default>false</default>
+            <summary>Display app window on all workspaces</summary>
+            <description>Display app window on all workspaces</description>
+        </key>
+        <key type="b" name="always-on-top">
+            <default>true</default>
+            <summary>Display app window above all windows</summary>
+            <description>Display app window above all windows</description>
+        </key>
+        <key type="b" name="hide-on-startup">
+            <default>false</default>
+            <summary>Hides app window on startup</summary>
+            <description>Hides app window on startup</description>
+        </key>
+        <key type="b" name="shake-reveal">
+            <default>false</default>
+            <summary>Shake to reveal</summary>
+            <description>Shake to reveal</description>
+        </key>
+        <key type="i" name="shake-sensitivity">
+            <default>5</default>
+            <summary>Shake sensitivity</summary>
+            <description>Shake sensitivity</description>
+        </key>
 	</schema>
 </schemalist>
