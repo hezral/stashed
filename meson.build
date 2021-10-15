@@ -7,6 +7,9 @@ project('com.github.hezral.stashed',
 
 i18n = import('i18n')
 
+rdnn = meson.project_name().split('.')
+project_domain = '.'.join([rdnn[0],rdnn[1],rdnn[2]])
+project_short_name = rdnn[3]
 
 subdir('data')
 subdir('src')
