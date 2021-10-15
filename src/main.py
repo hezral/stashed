@@ -41,6 +41,8 @@ class Application(Gtk.Application):
         
         self.main_window = None
 
+        self.create_app_actions()
+
         if self.gio_settings.get_value("theme-optin"):
             prefers_color_scheme = self.granite_settings.get_prefers_color_scheme()
             self.gtk_settings.set_property("gtk-application-prefer-dark-theme", prefers_color_scheme)
@@ -58,12 +60,11 @@ class Application(Gtk.Application):
 
     def do_activate(self):
         self.main_window = self.props.active_window
+        
         if not self.main_window:
             self.main_window = StashedWindow(application=self)
 
         self.on_show_window()
-
-        self.create_app_actions()
 
         self.running = True
 
@@ -87,6 +88,7 @@ class Application(Gtk.Application):
 
     def on_show_window(self):
         self.main_window.set_keep_above(True)
+        self.main_window.show()
         self.main_window.present()
         self.main_window.stash_stacked.grab_focus()
 

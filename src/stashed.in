@@ -34,4 +34,5 @@ if __name__ == '__main__':
     import gi
 
     from stashed import main
+    print("Stashed", VERSION)
     sys.exit(main.main(VERSION))

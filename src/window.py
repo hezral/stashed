@@ -22,7 +22,6 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Granite', '1.0')
 from gi.repository import GObject, GLib, Gtk, Handy, Gdk, Gio, Granite, GdkPixbuf, Pango
 
-from .utils import *
 from .shake_to_reveal import ShakeListener
 from .custom_widgets import CustomDialog, Settings
 from .utils import HelperUtils
@@ -69,7 +68,14 @@ class StashedWindow(Handy.ApplicationWindow):
         self.grid.attach(self.header, 0, 0, 1, 1)
         self.grid.attach(self.stack, 0, 1, 1, 1)
 
+        # window_handle = Handy.WindowHandle()
+        # window_handle.props.above_child = False
+        # window_handle.add(self.grid)
+        # window_handle.connect("grab-notify", self.on_window_handle_grab)
+
+        # self.add(window_handle)
         self.add(self.grid)
+
         self.props.resizable = False
         self.props.window_position = Gtk.WindowPosition.MOUSE
         self.show_all()
@@ -166,6 +172,10 @@ class StashedWindow(Handy.ApplicationWindow):
         self.stash_stacked.props.expand = True
         self.stash_stacked.props.valign = self.stash_stacked.props.halign = Gtk.Align.FILL
 
+        stash_zone_plus = Gtk.Label("Drag files here")
+        stash_zone_plus.props.expand = True
+        stash_zone_plus.get_style_context().add_class("stash-zone-plus")
+
         stash_zone = Gtk.Grid()
         stash_zone.props.expand = True
         stash_zone.props.margin_bottom = 20
@@ -173,6 +183,7 @@ class StashedWindow(Handy.ApplicationWindow):
         stash_zone.props.margin_right = 20
         stash_zone.props.halign = stash_zone.props.valign = Gtk.Align.FILL
         stash_zone.get_style_context().add_class("stash-zone")
+        stash_zone.attach(stash_zone_plus, 0, 0, 1, 1)
 
         self.stash_zone_revealer = Gtk.Revealer()
         self.stash_zone_revealer.props.transition_duration = 250
@@ -206,7 +217,7 @@ class StashedWindow(Handy.ApplicationWindow):
         self.stash_flowbox.props.homogeneous = True
         self.stash_flowbox.props.row_spacing = 20
         self.stash_flowbox.props.column_spacing = 20
-        self.stash_flowbox.props.max_children_per_line = 2
+        self.stash_flowbox.props.max_children_per_line = 10
         self.stash_flowbox.props.min_children_per_line = 2
         self.stash_flowbox.props.margin = 20
         self.stash_flowbox.props.valign = Gtk.Align.START
@@ -246,7 +257,7 @@ class StashedWindow(Handy.ApplicationWindow):
         stashed_settings_grid.props.homogeneous = True
         stashed_settings_grid.props.row_spacing = 20
         stashed_settings_grid.props.column_spacing = 20
-        stashed_settings_grid.props.max_children_per_line = 2
+        stashed_settings_grid.props.max_children_per_line = 10
         stashed_settings_grid.props.min_children_per_line = 2
         stashed_settings_grid.props.margin = 20
         stashed_settings_grid.props.valign = Gtk.Align.START
@@ -291,13 +302,8 @@ class StashedWindow(Handy.ApplicationWindow):
         self.settings_dialog.header.props.show_close_button = True
 
     def setup_display_settings(self):
-        # this is for tracking window state flags for persistent mode
-        self.state_flags_changed_count = 0
-        self.active_state_flags = ['GTK_STATE_FLAG_NORMAL', 'GTK_STATE_FLAG_DIR_LTR']
-        # read settings
         if not self.app.gio_settings.get_value("persistent-mode"):
             self.state_flags_on = self.connect("state-flags-changed", self.on_persistent_mode)
-            # print('state-flags-on')
         if self.app.gio_settings.get_value("sticky-mode"):
             self.stick()
         if self.app.gio_settings.get_value("always-on-top"):
@@ -310,16 +316,14 @@ class StashedWindow(Handy.ApplicationWindow):
         if self.app.gio_settings.get_value("shake-reveal"):
             self.shake_listener = ShakeListener(app=self.app, sensitivity=self.app.gio_settings.get_int("shake-sensitivity"))
 
+    def check_active(self, data=None):
+        print(self.app.utils.get_active_window_wm_class())
+        if self.app.props.application_id not in self.app.utils.get_active_window_wm_class():
+            # self.hide()
+            ...
+
     def on_persistent_mode(self, widget, event):
-        # state flags for window active state
-        self.state_flags = self.get_state_flags().value_names
-        # print(self.state_flags)
-        if not self.state_flags == self.active_state_flags and self.state_flags_changed_count > 1:
-            self.hide()
-            self.state_flags_changed_count = 0
-        else:
-            self.state_flags_changed_count += 1
-            # print('state-flags-changed', self.state_flags_changed_count)
+        GLib.timeout_add(100, self.check_active, None) #adjust timing based on behaviour of app
 
     def on_settings_clicked(self, button):
         self.generate_settings_dialog()
@@ -333,11 +337,14 @@ class StashedWindow(Handy.ApplicationWindow):
         if button.props.label == "Buy Me Coffee":
             Gtk.show_uri_on_window(None, "https://www.buymeacoffee.com/hezral", GLib.get_current_time())
 
+    def on_window_handle_grab(self, widget, was_grabbed):
+        print(locals())
+
     def on_stash_items_flowboxchild_activated(self, flowbox, flowboxchild):
         flowboxchild.get_children()[0].revealer.set_reveal_child(True)
 
     def on_stash_grid_clicked(self, widget, eventbutton):
-        if eventbutton.button == 3:
+        if eventbutton.type.value_name == "GDK_2BUTTON_PRESS":
             self.reveal_stash_grid()
 
     def on_search_clicked(self, button):
@@ -379,7 +386,7 @@ class StashedWindow(Handy.ApplicationWindow):
         def update_label(timeout):
             self.message_display.props.label = "Quit in {i}".format(i=timeout)
 
-        @self.app.utils.run_async
+        @HelperUtils.run_async
         def timeout_label(self, label):
             import time
             for i in reversed(range(1,3)):
@@ -412,9 +419,11 @@ class StashedWindow(Handy.ApplicationWindow):
                     flowboxchild.get_children()[0].revealer.set_reveal_child(False)
             self.on_stash_unfiltered()
             # self.disconnect_by_func(self.on_stash_filtered)
+            self.props.resizable = False
         else:
             self.stack.set_visible_child(self.stash_flowbox_grid)
             # self.connect("key-press-event", self.on_stash_filtered)
+            self.props.resizable = True
 
     def drag_and_drop_setup(self):
         self.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
@@ -466,9 +475,12 @@ class StashedWindow(Handy.ApplicationWindow):
         
         stashed_window = self.app.utils.get_window_by_gtk_application_id_xlib(self.app.props.application_id)
         self.app.utils.copy_files_to_clipboard(uri)
-        self.app.utils.set_active_window_by_pointer()
-        self.app.utils.paste_from_clipboard()
-        self.app.utils.set_active_window_by_xwindow(stashed_window)
+        if self.app.utils.set_active_window_by_pointer() != self.app.utils.get_active_window_id_xlib():
+            self.app.utils.paste_from_clipboard()
+            self.app.utils.set_active_window_by_xwindow(stashed_window)
+        elif self.app.utils.set_active_window_by_pointer() == stashed_window:
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            clipboard.clear()
 
     @HelperUtils.run_async
     def add_to_stash(self, target, data):
@@ -546,6 +558,8 @@ class StashedWindow(Handy.ApplicationWindow):
         
     def on_stash_filtered(self, window, eventkey):
 
+        print(Gdk.keyval_name(eventkey.keyval).lower())
+
         key = Gdk.keyval_name(eventkey.keyval).lower()
         key_length = len(key)
         
@@ -575,7 +589,6 @@ class StashedWindow(Handy.ApplicationWindow):
         self.stash_flowbox.invalidate_filter()
         self.stash_flowbox.set_filter_func(self.filter_func, keyword)
         self.search_keyword.props.label = keyword
-
 
 
 class StashItem(Gtk.EventBox):
