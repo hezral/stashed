@@ -49,10 +49,7 @@ install_data('application.css',
 )
 
 other_icon_sources = [
-  join_paths('icons', 'com.github.hezral' + '-' + 'coffee' + '.svg'),
-  join_paths('icons', 'com.github.hezral' + '-' + 'settings-symbolic' + '.svg'),
-  join_paths('icons', 'com.github.hezral' + '-' + 'select' + '.svg'),
-  join_paths('icons', 'com.github.hezral' + '-' + 'shortcuts' + '.svg'),
+  join_paths('icons', project_domain + '-' + 'shortcuts' + '.svg'),
   join_paths('icons', 'system-search' + '.svg'),
 ]
 iconsdir = join_paths(pkgdatadir, 'stashed', 'data', 'icons')
