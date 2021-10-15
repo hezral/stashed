@@ -246,9 +246,9 @@ class Settings(Gtk.Grid):
         self.app.gio_settings.bind("prefer-dark-style", theme_switch.switch, "active", Gio.SettingsBindFlags.DEFAULT)
         self.app.gio_settings.bind("theme-optin", theme_optin.checkbutton, "active", Gio.SettingsBindFlags.DEFAULT)
 
-        persistent_mode = SubSettings(type="switch", name="persistent-mode", label="Persistent mode", sublabel="Stays open and updates as new clips added",separator=True)
-        persistent_mode.switch.connect_after("notify::active", self.on_switch_activated)
-        self.app.gio_settings.bind("persistent-mode", persistent_mode.switch, "active", Gio.SettingsBindFlags.DEFAULT)
+        # persistent_mode = SubSettings(type="switch", name="persistent-mode", label="Persistent mode", sublabel="Stays open and updates as new clips added",separator=True)
+        # persistent_mode.switch.connect_after("notify::active", self.on_switch_activated)
+        # self.app.gio_settings.bind("persistent-mode", persistent_mode.switch, "active", Gio.SettingsBindFlags.DEFAULT)
         
         sticky_mode = SubSettings(type="switch", name="sticky-mode", label="Sticky mode", sublabel="Display on all workspaces",separator=False)
         sticky_mode.switch.connect_after("notify::active", self.on_switch_activated)
@@ -258,7 +258,7 @@ class Settings(Gtk.Grid):
         always_on_top.switch.connect_after("notify::active", self.on_switch_activated)
         self.app.gio_settings.bind("always-on-top", always_on_top.switch, "active", Gio.SettingsBindFlags.DEFAULT)
 
-        display_behaviour_settings = SettingsGroup("Display", (theme_switch, theme_optin, persistent_mode, always_on_top, sticky_mode, ))
+        display_behaviour_settings = SettingsGroup("Display", (theme_switch, theme_optin, always_on_top, sticky_mode, ))
         self.add(display_behaviour_settings)
 
         # Behaviour -------------------------------------------------
