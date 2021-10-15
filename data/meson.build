@@ -49,6 +49,9 @@ install_data('application.css',
 )
 
 other_icon_sources = [
+  join_paths('icons', project_domain + '-' + 'coffee' + '.svg'),
+  join_paths('icons', project_domain + '-' + 'settings-symbolic' + '.svg'),
+  join_paths('icons', project_domain + '-' + 'select' + '.svg'),
   join_paths('icons', project_domain + '-' + 'shortcuts' + '.svg'),
   join_paths('icons', 'system-search' + '.svg'),
 ]
