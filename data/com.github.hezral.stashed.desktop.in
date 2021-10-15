@@ -1,7 +1,8 @@
 [Desktop Entry]
-Name=stashed
-Exec=stashed
+Name=Stashed
 Terminal=false
 Type=Application
-Categories=GTK;
+Categories=Accessories
 StartupNotify=true
+Exec=com.github.hezral.stashed
+Icon=com.github.hezral.stashed
