@@ -42,8 +42,6 @@ if compile_schemas.found()
   )
 endif
 
-pkgdatadir = join_paths(get_option('prefix'), get_option('datadir'), meson.project_name())
-
 install_data('application.css',
   install_dir: join_paths(pkgdatadir, 'stashed', 'data')
 )
