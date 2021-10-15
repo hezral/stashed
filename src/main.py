@@ -29,14 +29,14 @@ from . import utils
 
 class Application(Gtk.Application):
 
+    app_id = "com.github.hezral.stashed"
     granite_settings = Granite.Settings.get_default()
     gtk_settings = Gtk.Settings.get_default()
-    gio_settings = Gio.Settings(schema_id="com.github.hezral.stashed")
-    utils = utils
+    gio_settings = Gio.Settings(schema_id=app_id)
     running = False
 
     def __init__(self):
-        super().__init__(application_id='com.github.hezral.stashed',
+        super().__init__(application_id=self.app_id,
                          flags=Gio.ApplicationFlags.FLAGS_NONE)
         
         self.main_window = None
