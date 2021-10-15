@@ -25,6 +25,7 @@ from gi.repository import GObject, GLib, Gtk, Handy, Gdk, Gio, Granite, GdkPixbu
 from .utils import *
 from .shake_to_reveal import ShakeListener
 from .custom_widgets import CustomDialog, Settings
+from .utils import HelperUtils
 
 IMAGE_DND_TARGET = Gtk.TargetEntry.new('image/png', Gtk.TargetFlags.SAME_APP, 0)
 UTF8TEXT_DND_TARGET = Gtk.TargetEntry.new('text/plain;charset=utf-8', Gtk.TargetFlags.SAME_APP, 0)
@@ -469,7 +470,7 @@ class StashedWindow(Handy.ApplicationWindow):
         self.app.utils.paste_from_clipboard()
         self.app.utils.set_active_window_by_xwindow(stashed_window)
 
-    @run_async
+    @HelperUtils.run_async
     def add_to_stash(self, target, data):
         from urllib.parse import urlparse
         import time

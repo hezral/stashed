@@ -19,13 +19,12 @@ import sys
 import os
 import gi
 
-gi.require_version('Handy', '1')
 gi.require_version('Gtk', '3.0')
 gi.require_version('Granite', '1.0')
 from gi.repository import Gtk, Gdk, Gio, Granite, GLib
 
 from .window import StashedWindow
-from . import utils
+from .utils import HelperUtils
 
 class Application(Gtk.Application):
 
@@ -33,6 +32,7 @@ class Application(Gtk.Application):
     granite_settings = Granite.Settings.get_default()
     gtk_settings = Gtk.Settings.get_default()
     gio_settings = Gio.Settings(schema_id=app_id)
+    utils = HelperUtils()
     running = False
 
     def __init__(self):
