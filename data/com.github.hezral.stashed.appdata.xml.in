@@ -1,8 +1,78 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2021 Adi Hezraln <hezral@gmail.com> -->
 <component type="desktop">
-	<id>com.github.hezral.stashed.desktop</id>
-	<metadata_license>CC0-1.0</metadata_license>
-	<project_license>GPL-3.0-or-later</project_license>
-	<description>
-	</description>
+  <id>com.github.hezral.stashed</id>
+  <metadata_license>CC0</metadata_license>
+  <project_license>GPL-3.0+</project_license>
+  <name>Stashed</name>
+  <summary>File Utility</summary>
+  <developer_name>Adi Hezral</developer_name>
+  <description>
+	<p>Drag your files to Stashed to copy it later</p>
+	<p>Collect files from multiple directory</p>
+	<p>Copy all files in the stash to a direction</p>
+	<p>Copy individual files by selecting what you want</p>
+	<p>Shake the mouse cursor to call Stashed</p>
+  </description>
+
+  <provides>
+      <binary>com.github.hezral.stashed</binary>
+  </provides>
+
+  <url type="homepage">https://github.com/hezral/stashed</url>
+  <url type="help">https://github.com/hezral/stashed/issues</url>
+  <url type="bugtracker">https://github.com/hezral/stashed/issues/labels/bug</url>
+
+  <screenshots>
+      <screenshot type="default">
+          <caption>stashed Main Window</caption>
+          <image>https://github.com/hezral/stashed/blob/master/data/screenshot-01.png?raw=true</image>
+      </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-cartoon">none</content_attribute>
+    <content_attribute id="violence-fantasy">none</content_attribute>
+    <content_attribute id="violence-realistic">none</content_attribute>
+    <content_attribute id="violence-bloodshed">none</content_attribute>
+    <content_attribute id="violence-sexual">none</content_attribute>
+    <content_attribute id="violence-desecration">none</content_attribute>
+    <content_attribute id="violence-slavery">none</content_attribute>
+    <content_attribute id="violence-worship">none</content_attribute>
+    <content_attribute id="drugs-alcohol">none</content_attribute>
+    <content_attribute id="drugs-narcotics">none</content_attribute>
+    <content_attribute id="drugs-tobacco">none</content_attribute>
+    <content_attribute id="sex-nudity">none</content_attribute>
+    <content_attribute id="sex-themes">none</content_attribute>
+    <content_attribute id="sex-homosexuality">none</content_attribute>
+    <content_attribute id="sex-prostitution">none</content_attribute>
+    <content_attribute id="sex-adultery">none</content_attribute>
+    <content_attribute id="sex-appearance">none</content_attribute>
+    <content_attribute id="language-profanity">none</content_attribute>
+    <content_attribute id="language-humor">none</content_attribute>
+    <content_attribute id="language-discrimination">none</content_attribute>
+    <content_attribute id="social-chat">none</content_attribute>
+    <content_attribute id="social-info">none</content_attribute>
+    <content_attribute id="social-audio">none</content_attribute>
+    <content_attribute id="social-location">none</content_attribute>
+    <content_attribute id="social-contacts">none</content_attribute>
+    <content_attribute id="money-purchasing">none</content_attribute>
+    <content_attribute id="money-gambling">none</content_attribute>
+  </content_rating>
+
+  <releases>
+    <release version="1.0.0" date="2021-10-16">
+      <description>
+        <p>First release!</p>
+      </description>
+    </release>
+  </releases>
+
+  <custom>
+    <value key="x-appcenter-color-primary">#FF7E07</value>
+    <value key="x-appcenter-color-primary-text">#FFDC82</value>
+    <value key="x-appcenter-suggested-price">0.00</value>
+    <value key="x-appcenter-stripe">pk_live_51J03F1AXT8Az6AYFEiPc5mgpv7vUSWDnw135TmPT4tUbB2CJLwG19e3NxEuC7Zbz3VkXg7BygUQOTf7x6UDhSAn8005gq9ywZy</value>
+  </custom>
+
 </component>
