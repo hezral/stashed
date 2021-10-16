@@ -13,6 +13,7 @@
 	<p>Copy all files in the stash to a direction</p>
 	<p>Copy individual files by selecting what you want</p>
 	<p>Shake the mouse cursor to call Stashed</p>
+	<p>Double click the stashed files to find individual files</p>
   </description>
 
   <provides>

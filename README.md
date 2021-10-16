@@ -14,12 +14,11 @@ If you like what i make, it would really be nice to have someone buy me a coffee
 * Copy all files in the stash to a direction
 * Copy individual files by selecting what you want
 * Shake the mouse cursor to call Stashed
+* Double click the stashed files to find individual files
 
-<div align="center">
 
-![Screenshot](data/screenshot-01.png?raw=true)
-
-</div>
+| ![Screenshot](data/screenshot-01.png?raw=true) | ![Screenshot](data/screenshot-02.png?raw=true) |
+|------------------------------------------|-----------------------------------------|
 
 # Installation
 
