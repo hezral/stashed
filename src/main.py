@@ -93,9 +93,11 @@ class Application(Gtk.Application):
 
     def on_show_window(self):
         for window in self.get_windows():
+            window.setup_display_settings()
             window.show()
             window.present()
             window.stash_stacked.grab_focus()
+
 
     def create_app_actions(self):
         self.create_action("hide", self.on_hide_action, "Escape")

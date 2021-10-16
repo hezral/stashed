@@ -77,7 +77,6 @@ class StashedWindow(Handy.ApplicationWindow):
         self.props.resizable = False
         self.props.window_position = Gtk.WindowPosition.MOUSE
         self.show_all()
-        self.set_keep_above(True)
         self.set_size_request(400, 400)
 
         self.setup_display_settings()
