@@ -22,7 +22,7 @@ stashed_sources = [
   'main.py',
   'window.py',
   'custom_widgets.py',
-  'shake_to_reveal.py',
+  'shake_listener.py',
   'utils.py',
 ]
 

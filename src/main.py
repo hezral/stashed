@@ -25,6 +25,7 @@ from gi.repository import Gtk, Gdk, Gio, Granite, GLib
 
 from .window import StashedWindow
 from .utils import HelperUtils
+from .shake_listener import ShakeListener
 
 class Application(Gtk.Application):
 
@@ -34,6 +35,7 @@ class Application(Gtk.Application):
     gio_settings = Gio.Settings(schema_id=app_id)
     utils = HelperUtils()
     running = False
+    shake_listener = None
 
     def __init__(self):
         super().__init__(application_id=self.app_id,
@@ -58,6 +60,8 @@ class Application(Gtk.Application):
         self.icon_theme.prepend_search_path(os.path.join(GLib.get_home_dir(), ".local/share/flatpak/exports/share/icons"))
         self.icon_theme.prepend_search_path(os.path.join(os.path.dirname(__file__), "data", "icons"))
 
+        self.setup_shake_listener()
+
     def do_activate(self):
         self.main_window = self.props.active_window
         
@@ -79,22 +83,30 @@ class Application(Gtk.Application):
         self.set_accels_for_action("app.{name}".format(name=name), [shortcutkey])
 
     def on_hide_action(self, action, param):
-        if self.main_window is not None:
-            self.main_window.hide()
+        if self.get_windows() is not None:
+            for window in self.get_windows():
+                window.hide
 
     def on_quit_action(self, action, param):
         if self.main_window is not None:
             self.main_window.destroy()
 
     def on_show_window(self):
-        self.main_window.set_keep_above(True)
-        self.main_window.show()
-        self.main_window.present()
-        self.main_window.stash_stacked.grab_focus()
+        for window in self.get_windows():
+            window.show()
+            window.present()
+            window.stash_stacked.grab_focus()
 
     def create_app_actions(self):
         self.create_action("hide", self.on_hide_action, "Escape")
         self.create_action("quit", self.on_quit_action, "<Ctrl>Q")
+
+    def setup_shake_listener(self, *args):
+        if self.shake_listener is not None:
+            self.shake_listener.listener.stop()
+            self.shake_listener = None
+        if self.gio_settings.get_value("shake-reveal"):
+            self.shake_listener = ShakeListener(app=self, reveal_callback=self.do_activate, sensitivity=self.gio_settings.get_int("shake-sensitivity"))
 
 def main(version):
     app = Application()
