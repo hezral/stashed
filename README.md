@@ -16,6 +16,7 @@ If you like what i make, it would really be nice to have someone buy me a coffee
 * Shake the mouse cursor to call Stashed
 * Double click the stashed files to find individual files
 
+https://user-images.githubusercontent.com/762735/137588640-b12344ee-f53d-4294-ba95-69c5b3ebc825.mp4
 
 | ![Screenshot](data/screenshot-01.png?raw=true) | ![Screenshot](data/screenshot-02.png?raw=true) |
 |------------------------------------------|-----------------------------------------|
