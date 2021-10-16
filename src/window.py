@@ -22,7 +22,6 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Granite', '1.0')
 from gi.repository import GObject, GLib, Gtk, Handy, Gdk, Gio, Granite, GdkPixbuf, Pango
 
-from .shake_to_reveal import ShakeListener
 from .custom_widgets import CustomDialog, Settings
 from .utils import HelperUtils
 
@@ -41,7 +40,6 @@ class StashedWindow(Handy.ApplicationWindow):
     search = []
     search_result = 0
     close_timeout_id = None
-    shake_listener = None
 
     Handy.init()
 
@@ -89,8 +87,6 @@ class StashedWindow(Handy.ApplicationWindow):
         self.drag_and_grab_setup(self.stash_flowbox)
 
         self.connect("key-press-event", self.on_stash_filtered)
-
-        self.setup_shake_listener()
 
     def generate_headerbar(self):
         close_button = Gtk.Button(image=Gtk.Image().new_from_icon_name("application-exit", Gtk.IconSize.SMALL_TOOLBAR))
@@ -309,13 +305,6 @@ class StashedWindow(Handy.ApplicationWindow):
         if self.app.gio_settings.get_value("always-on-top"):
             self.set_keep_above(True)
 
-    def setup_shake_listener(self, *args):
-        if self.shake_listener is not None:
-            self.shake_listener.listener.stop()
-            self.shake_listener = None
-        if self.app.gio_settings.get_value("shake-reveal"):
-            self.shake_listener = ShakeListener(app=self.app, sensitivity=self.app.gio_settings.get_int("shake-sensitivity"))
-
     def check_active(self, data=None):
         print(self.app.utils.get_active_window_wm_class())
         if self.app.props.application_id not in self.app.utils.get_active_window_wm_class():
@@ -363,8 +352,8 @@ class StashedWindow(Handy.ApplicationWindow):
             self.stack.set_visible_child(self.stash_stacked_grid)
             GLib.source_remove(self.timeout_id)
             self.timeout_id = None
-            if self.shake_listener is not None:
-                self.shake_listener.init_variables()
+            if self.app.shake_listener is not None:
+                self.app.shake_listener.init_variables()
                 # self.shake_listener.init_listener()
         else:
             button.stop_emission_by_name("clicked")
@@ -438,7 +427,9 @@ class StashedWindow(Handy.ApplicationWindow):
         widget.drag_source_set(Gdk.ModifierType.BUTTON1_MASK, [], Gdk.DragAction.COPY)
         widget.drag_source_add_uri_targets()
         # widget.connect("drag_data_get", self.on_drag_data_get)
-        widget.connect("drag_end", self.grab_from_stash)
+        widget.connect("drag_begin", self.on_drag_begin)
+        widget.connect("drag_end", self.on_drag_end)
+        # widget.connect("drag_motion", self.on_drag_motion)
 
     def on_drag_drop(self, *args):
         self.stash_zone_revealer.set_reveal_child(False)
@@ -447,12 +438,25 @@ class StashedWindow(Handy.ApplicationWindow):
             self.search_revealer.set_reveal_child(True)
 
     def on_drag_motion(self, *args):
+        # print(locals())
         self.clear_stash_revealer.set_reveal_child(False)
         self.search_revealer.set_reveal_child(False)
         self.stash_zone_revealer.set_reveal_child(True)
 
+    def on_drag_begin(self, widget, drag_context):
+        self.disconnect_by_func(self.on_drag_motion)
+        # print(locals())
+        # Gtk.drag_set_icon_widget(drag_context, self.stash_stacked, -2, -2)
+
+    def on_drag_end(self, widget, drag_context):
+        self.connect("drag_motion", self.on_drag_motion)
+        self.grab_from_stash(widget, drag_context)
+        # print(locals())
+        # Gtk.drag_set_icon_widget(drag_context, self.iconstack_drag_widget, -2, -2)
+
     def on_drag_data_get(self, widget, drag_context, data, info, timestamp):
-        Gtk.drag_set_icon_widget(drag_context, self.iconstack_drag_widget, -2, -2)
+        print(locals())
+        # Gtk.drag_set_icon_widget(drag_context, self.iconstack_drag_widget, -2, -2)
         
     def on_drag_data_received(self, widget, context, x, y, data, info, timestamp):
         self.add_to_stash(data.get_target(), data)
@@ -518,7 +522,6 @@ class StashedWindow(Handy.ApplicationWindow):
             icon = GifContainer(path)
             item = GifContainer(path, 64)
 
-
         import random
         if len(self.stash_stacked.get_children()) != 0:
             margin = random.randint(24,64) + self.iconstack_offset
@@ -527,6 +530,7 @@ class StashedWindow(Handy.ApplicationWindow):
             random.choice(set_margins)(self.iconstack_offset + random.randint(10,1000) % 2)
 
         self.stash_stacked.add_overlay(icon)
+        # self.stash_stacked_icons.add_overlay(icon)
 
         self.stash_flowbox.add(StashItem(path, item))
 
