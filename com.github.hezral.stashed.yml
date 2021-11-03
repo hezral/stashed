@@ -3,7 +3,6 @@ runtime: io.elementary.Sdk
 runtime-version: '6'
 sdk: io.elementary.Sdk
 command: com.github.hezral.stashed
-appstream-compose: false
 finish-args:
   - --socket=wayland
   - --socket=fallback-x11
