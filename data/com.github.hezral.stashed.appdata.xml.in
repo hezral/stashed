@@ -62,9 +62,10 @@
   </content_rating>
 
   <releases>
-    <release version="1.0.0" date="2021-10-16">
+    <release version="1.0.1" date="2021-11-03">
       <description>
         <p>First release!</p>
+        <p>Fixed appdata file and manifest file</p>
       </description>
     </release>
   </releases>
