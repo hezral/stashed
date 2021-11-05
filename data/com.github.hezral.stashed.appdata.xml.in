@@ -66,9 +66,8 @@
   </content_rating>
 
   <releases>
-    <release version="1.0.1" date="2021-11-03">
+    <release version="1.0.2" date="2021-11-05">
       <description>
-        <p>First release!</p>
         <p>Fixed appdata file and manifest file</p>
       </description>
     </release>
