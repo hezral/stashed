@@ -72,7 +72,7 @@
 
   <custom>
     <value key="x-appcenter-color-primary">#FF7E07</value>
-    <value key="x-appcenter-color-primary-text">#FFDC82</value>
+    <value key="x-appcenter-color-primary-text">#662200</value>
     <value key="x-appcenter-suggested-price">0.00</value>
     <value key="x-appcenter-stripe">pk_live_51J03F1AXT8Az6AYFEiPc5mgpv7vUSWDnw135TmPT4tUbB2CJLwG19e3NxEuC7Zbz3VkXg7BygUQOTf7x6UDhSAn8005gq9ywZy</value>
   </custom>
