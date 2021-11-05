@@ -1,13 +1,11 @@
 app-id: com.github.hezral.stashed
-runtime: io.elementary.Sdk
+runtime: io.elementary.Platform
 runtime-version: '6'
 sdk: io.elementary.Sdk
 command: com.github.hezral.stashed
 finish-args:
   - --socket=wayland
   - --socket=fallback-x11
-  # needed for perfers-color-scheme
-  - --system-talk-name=org.freedesktop.Accounts
   # default access to user home only
   - --filesystem=home
 modules:
