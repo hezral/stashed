@@ -2,7 +2,7 @@
 Name=Stashed
 Terminal=false
 Type=Application
-Categories=Accessories
+Categories=Utility;System;
 StartupNotify=true
 Exec=com.github.hezral.stashed
 Icon=com.github.hezral.stashed
